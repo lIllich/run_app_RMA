@@ -1,4 +1,5 @@
 package com.example.run_app_rma.domain.model
+
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index

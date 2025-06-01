@@ -1,7 +1,6 @@
 package com.example.run_app_rma
 
 import android.os.Bundle
-import android.widget.Space
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent

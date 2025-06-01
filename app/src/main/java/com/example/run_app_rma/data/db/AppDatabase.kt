@@ -10,7 +10,6 @@ import com.example.run_app_rma.data.dao.SensorDao
 import com.example.run_app_rma.domain.model.LocationDataEntity
 import com.example.run_app_rma.domain.model.RunEntity
 import com.example.run_app_rma.domain.model.SensorDataEntity
-//import com.example.run_app_rma.domain.model.SensorType
 
 @Database(
     entities = [RunEntity::class, SensorDataEntity::class, LocationDataEntity::class],
