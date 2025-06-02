@@ -17,52 +17,62 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect // IMPORT LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.viewmodel.compose.viewModel
-// Uklonjeni importi za NavController i currentBackStackEntryAsState
 import com.example.run_app_rma.data.firestore.repository.UserRepository
 import com.example.run_app_rma.data.remote.AuthRepository
 import com.example.run_app_rma.presentation.feed.FeedScreen
 import com.example.run_app_rma.presentation.follow.FollowScreen
 import com.example.run_app_rma.presentation.profile.ProfileScreen
 import com.example.run_app_rma.presentation.profile.ProfileViewModel
-import com.example.run_app_rma.presentation.track.RunningScreen
+import com.example.run_app_rma.presentation.track.RunningScreen // IMPORT RunningScreen
 import com.example.run_app_rma.presentation.track.RunViewModel
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore // Import FirebaseFirestore for ProfileViewModel Factory
 import kotlinx.coroutines.launch
 
 enum class TabScreen(val title: String, val icon: ImageVector) {
     FEED("Feed", Icons.Default.DynamicFeed),
-    RUNNING("Running", Icons.Default.DirectionsRun),
-    FOLLOW("Follow", Icons.Default.People),
-    PROFILE("Profile", Icons.Default.AccountCircle)
+    RUNNING("Trčanje", Icons.Default.DirectionsRun), // Changed to "Trčanje" for consistency
+    FOLLOW("Prati", Icons.Default.People), // Changed to "Prati" for consistency
+    PROFILE("Profil", Icons.Default.AccountCircle) // Changed to "Profil" for consistency
 }
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun MainScreenWithTabs(
     modifier: Modifier = Modifier,
-    // Uklonjen navController kao parametar
     runViewModel: RunViewModel,
     userRepository: UserRepository,
     firebaseAuth: FirebaseAuth,
-    authRepository: AuthRepository,
+    authRepository: AuthRepository, // This is the AuthRepository instance from MainActivity
     onLogout: () -> Unit,
     onEditProfile: (String) -> Unit
 ) {
+    // Start on Profile tab as initial page if that's desired behavior.
+    // Given the previous code, it started on "RUNNING.ordinal", so keeping that for now.
     val pagerState = rememberPagerState(initialPage = TabScreen.RUNNING.ordinal) {
         TabScreen.values().size
     }
     val scope = rememberCoroutineScope()
 
     val profileViewModel: ProfileViewModel = viewModel(
-        factory = ProfileViewModel.Factory(userRepository, firebaseAuth, authRepository)
+        factory = ProfileViewModel.Factory(
+            userRepository = userRepository,
+            firebaseAuth = firebaseAuth,
+            authRepository = authRepository // Pass the correct AuthRepository instance
+        )
     )
 
-    // Uklonjen dio za promatranje NavBackStackEntry i LaunchedEffect
-    // NEMA LaunchedEffect(navBackStackEntry) bloka
+    // Observe changes in the selected tab and refresh profile data when the Profile tab is selected
+    LaunchedEffect(pagerState.currentPage) {
+        if (TabScreen.values()[pagerState.currentPage] == TabScreen.PROFILE) {
+            profileViewModel.fetchUserProfile()
+        }
+    }
 
     Scaffold(
         bottomBar = {
@@ -90,7 +100,7 @@ fun MainScreenWithTabs(
         ) { page ->
             when (TabScreen.values()[page]) {
                 TabScreen.FEED -> FeedScreen()
-                TabScreen.RUNNING -> RunningScreen(runViewModel = runViewModel)
+                TabScreen.RUNNING -> RunningScreen(runViewModel = runViewModel) // Corrected: RunningScreen
                 TabScreen.FOLLOW -> FollowScreen()
                 TabScreen.PROFILE -> ProfileScreen(
                     profileViewModel = profileViewModel,

@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import java.util.UUID
 
 class EditProfileViewModel(
     private val userRepository: UserRepository,
@@ -37,63 +38,83 @@ class EditProfileViewModel(
         fetchCurrentUserProfile()
     }
 
-    private fun fetchCurrentUserProfile() {
-        val userId = firebaseAuth.currentUser?.uid
-        if (userId == null) {
-            _errorMessage.value = "Korisnik nije prijavljen."
-            return
-        }
-
+    fun fetchCurrentUserProfile() {
         _isLoading.value = true
         viewModelScope.launch {
-            val result = userRepository.getUserProfile(userId)
-            _isLoading.value = false
-            if (result.isSuccess) {
-                _currentUser.value = result.getOrNull()
-            } else {
-                _errorMessage.value = result.exceptionOrNull()?.message ?: "Greška pri dohvatu profila."
+            try {
+                val userId = firebaseAuth.currentUser?.uid
+                if (userId != null) {
+                    val result = userRepository.getUserProfile(userId)
+                    if (result.isSuccess) {
+                        _currentUser.value = result.getOrNull()
+                    } else {
+                        _errorMessage.value = result.exceptionOrNull()?.message ?: "Failed to load profile."
+                    }
+                } else {
+                    _errorMessage.value = "User not logged in."
+                }
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "An error occurred while fetching profile."
+            } finally {
+                _isLoading.value = false
             }
         }
     }
 
-    fun updateUserProfile(userId: String, displayName: String, age: Int?, profileImageUri: Uri?) {
+    fun updateUserProfile(
+        userId: String,
+        displayName: String,
+        age: Int?,
+        profileImageUri: Uri?
+    ) {
         _isLoading.value = true
-        _errorMessage.value = null
-        _successMessage.value = null
-
         viewModelScope.launch {
             try {
-                var newProfileImageUrl: String? = currentUser.value?.profileImageUrl
+                var imageUrl: String? = currentUser.value?.profileImageUrl
 
                 if (profileImageUri != null) {
-                    // Upload image to Firebase Storage
-                    val storageRef = firebaseStorage.reference.child("profile_images/${userId}.jpg")
-                    val uploadTask = storageRef.putFile(profileImageUri).await()
-                    newProfileImageUrl = storageRef.downloadUrl.await().toString()
+                    val user = firebaseAuth.currentUser
+                    if (user != null) {
+                        val imageRef = firebaseStorage.reference
+                            .child("profile_images/${user.uid}/${UUID.randomUUID()}.jpg")
+
+                        val uploadTask = imageRef.putFile(profileImageUri).await()
+                        imageUrl = uploadTask.storage.downloadUrl.await().toString()
+                    } else {
+                        _errorMessage.value = "User not authenticated for image upload."
+                        _isLoading.value = false
+                        return@launch
+                    }
+                } else if (currentUser.value?.profileImageUrl != null && (profileImageUri == null && imageUrl?.isEmpty() != false)) {
+                    // If URI is null and current profile has an image, and it's not explicitly keeping it, set to empty.
+                    // This handles cases where user wants to remove the image.
+                    imageUrl = ""
                 }
 
-                // Promjena ovdje: Koristi MutableMap<String, Any?> za podršku null vrijednostima
-                val updates = mutableMapOf<String, Any?>()
 
-                if (displayName != currentUser.value?.displayName) {
-                    updates["displayName"] = displayName
+                val updatedUserMap = mutableMapOf<String, Any>()
+                val currentDisplayName = _currentUser.value?.displayName
+                val currentAge = _currentUser.value?.age
+                val currentProfileImageUrl = _currentUser.value?.profileImageUrl
+
+                var hasChanges = false
+
+                if (displayName != currentDisplayName) {
+                    updatedUserMap["displayName"] = displayName
+                    hasChanges = true
                 }
-                // age je Int?, pa može biti null. Bitno je da mapa to podržava.
-                if (age != currentUser.value?.age) {
-                    updates["age"] = age
+                if (age != currentAge) {
+                    updatedUserMap["age"] = age ?: 0
+                    hasChanges = true
                 }
-                // newProfileImageUrl je String?, pa može biti null.
-                if (newProfileImageUrl != currentUser.value?.profileImageUrl) {
-                    updates["profileImageUrl"] = newProfileImageUrl
+                // Check if imageUrl has changed, including setting to null/empty
+                if (imageUrl != currentProfileImageUrl) {
+                    updatedUserMap["profileImageUrl"] = imageUrl ?: ""
+                    hasChanges = true
                 }
 
-                if (updates.isNotEmpty()) {
-                    val result = userRepository.updateUserProfile(userId, updates as Map<String, Any>) // Firestore update method requires Map<String, Any> for non-null values. But if value is nullable, we cast to Any?
-                    // NOTE: The updateUserProfile in UserRepository should ideally accept Map<String, Any?>
-                    // If it still expects Map<String, Any>, you might need to handle nulls there
-                    // or define a specific map for non-nullable updates.
-                    // For now, let's assume `updateUserProfile` can handle null if the Firestore API allows it.
-                    // If the problem persists, we might need to adjust UserRepository as well.
+                if (hasChanges) {
+                    val result = userRepository.updateUserProfile(userId, updatedUserMap)
 
                     if (result.isSuccess) {
                         _successMessage.value = "Profil uspješno ažuriran!"
@@ -105,7 +126,7 @@ class EditProfileViewModel(
                     _successMessage.value = "Nema promjena za spremanje."
                 }
             } catch (e: Exception) {
-                _errorMessage.value = e.message ?: "Došlo je do greške."
+                _errorMessage.value = e.message ?: "Došlo je do greške prilikom ažuriranja profila."
             } finally {
                 _isLoading.value = false
             }
@@ -116,7 +137,6 @@ class EditProfileViewModel(
         _errorMessage.value = null
         _successMessage.value = null
     }
-
 
     class Factory(
         private val userRepository: UserRepository,

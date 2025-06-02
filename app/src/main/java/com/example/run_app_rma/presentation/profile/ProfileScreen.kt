@@ -32,47 +32,44 @@ import java.text.DecimalFormat
 
 @Composable
 fun ProfileScreen(
-    modifier: Modifier = Modifier,
     profileViewModel: ProfileViewModel,
-    onLogout: () -> Unit, // Callback za odjavu
-    onEditProfile: (String) -> Unit // Callback za uređivanje profila, prosljeđuje UID
+    onLogout: () -> Unit,
+    onEditProfile: (String) -> Unit
 ) {
-    val currentUser by profileViewModel.currentUser.collectAsState()
+    val currentUser by profileViewModel.currentUser.collectAsState() // Corrected: collectAsState for currentUser
     val isLoading by profileViewModel.isLoading.collectAsState()
     val errorMessage by profileViewModel.errorMessage.collectAsState()
 
     Column(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxSize()
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         if (isLoading) {
-            CircularProgressIndicator()
+            CircularProgressIndicator(modifier = Modifier.size(50.dp))
+            Text("Učitavanje profila...")
         } else if (errorMessage != null) {
-            Text(text = "Error: ${errorMessage}")
+            Text("Greška: $errorMessage", color = MaterialTheme.colorScheme.error)
             Button(onClick = { profileViewModel.fetchUserProfile() }) {
                 Text("Pokušaj ponovo")
             }
         } else if (currentUser != null) {
-            UserProfileContent(user = currentUser!!)
-            Spacer(modifier = Modifier.height(24.dp))
+            UserProfileContent(user = currentUser!!) // Non-null assertion after check
+            Spacer(modifier = Modifier.height(32.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceAround
             ) {
                 Button(
-                    onClick = { onEditProfile(currentUser!!.id) }, // Proslijedi UID na klik
+                    onClick = { currentUser?.let { onEditProfile(it.id) } }, // Corrected: access user.id
                     modifier = Modifier.weight(1f).padding(end = 8.dp)
                 ) {
-                    Text("Uredi podatke")
+                    Text("Uredi profil")
                 }
                 Button(
-                    onClick = {
-                        profileViewModel.logoutUser()
-                        onLogout() // Pozovi callback za navigaciju na LoginScreen
-                    },
+                    onClick = { onLogout() }, // Corrected: use onLogout lambda from parent
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                     modifier = Modifier.weight(1f).padding(start = 8.dp)
                 ) {
@@ -81,8 +78,7 @@ fun ProfileScreen(
             }
         } else {
             Text(text = "Korisnik nije prijavljen ili profil nije pronađen.")
-            // Možda dodati gumb za povratak na prijavu ako nije prijavljen
-            Button(onClick = { onLogout() }) {
+            Button(onClick = { onLogout() }) { // Ensure this triggers logout flow if no user
                 Text("Idi na prijavu")
             }
         }
@@ -110,8 +106,20 @@ fun UserProfileContent(user: User) {
     Text(text = "Email: ${user.email}")
     user.age?.let { age ->
         Text(text = "Dob: $age")
-    } ?: Text(text = "Dob: Nije postavljeno")
-
-    Text(text = "Ukupna pređena udaljenost: ${decimalFormat.format(user.totalDistanceRun / 1000)} km")
-    Text(text = "Broj trčanja: ${user.totalRuns}")
+    }
+    Text(text = "Ukupna udaljenost: ${decimalFormat.format(user.totalDistanceRun)} km")
+    Text(text = "Ukupno trčanja: ${user.totalRuns}")
+    // Display lastRunTimestamp if available
+    user.lastRunTimestamp?.let { timestamp ->
+        // Format timestamp as needed, e.g., using SimpleDateFormat
+        // val dateFormat = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
+        // Text(text = "Zadnje trčanje: ${dateFormat.format(Date(timestamp))}")
+        Text(text = "Zadnje trčanje (timestamp): $timestamp") // For now, just display raw timestamp
+    }
+    // Display createdAt if available
+    user.createdAt?.let { timestamp ->
+        // val dateFormat = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
+        // Text(text = "Kreirano: ${dateFormat.format(Date(timestamp))}")
+        Text(text = "Kreirano (timestamp): $timestamp") // For now, just display raw timestamp
+    }
 }

@@ -5,7 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.run_app_rma.data.firestore.model.User
 import com.example.run_app_rma.data.firestore.repository.UserRepository
-import com.example.run_app_rma.data.remote.AuthRepository // Uvezi AuthRepository
+import com.example.run_app_rma.data.remote.AuthRepository
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -15,11 +15,11 @@ import kotlinx.coroutines.launch
 class ProfileViewModel(
     private val userRepository: UserRepository,
     private val firebaseAuth: FirebaseAuth,
-    private val authRepository: AuthRepository // Dodaj AuthRepository
+    private val authRepository: AuthRepository
 ) : ViewModel() {
 
-    private val _currentUser = MutableStateFlow<User?>(null)
-    val currentUser: StateFlow<User?> = _currentUser.asStateFlow()
+    private val _currentUser = MutableStateFlow<User?>(null) // This should be _currentUser
+    val currentUser: StateFlow<User?> = _currentUser.asStateFlow() // And this should be currentUser
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
@@ -51,13 +51,12 @@ class ProfileViewModel(
         }
     }
 
-    fun logoutUser() {
+    fun logout() { // Consistently name it 'logout'
         authRepository.logout()
         _currentUser.value = null // Clear user data in ViewModel
         _errorMessage.value = null // Clear any error messages
     }
 
-    // Factory za instanciranje ViewModela s ovisnostima
     class Factory(
         private val userRepository: UserRepository,
         private val firebaseAuth: FirebaseAuth,

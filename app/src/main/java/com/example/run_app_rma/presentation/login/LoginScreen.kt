@@ -2,11 +2,16 @@ package com.example.run_app_rma.presentation.login
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.example.run_app_rma.data.remote.AuthRepository
 import kotlinx.coroutines.launch
@@ -22,15 +27,18 @@ fun LoginScreen(
     var ageString by remember { mutableStateOf("") } // Dodano za registraciju, unos kao String
     var message by remember { mutableStateOf<String?>(null) }
     var isLoginMode by remember { mutableStateOf(true) }
+    var passwordVisible by remember { mutableStateOf(false) } // State for password visibility
     val scope = rememberCoroutineScope()
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp),
-        verticalArrangement = Arrangement.Center,
+        verticalArrangement = Arrangement.Top, // Align content to the top
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        Spacer(modifier = Modifier.height(64.dp)) // Add some space from the very top
+
         Text(
             text = if (isLoginMode) "Login" else "Create Account",
             style = MaterialTheme.typography.headlineSmall,
@@ -41,40 +49,51 @@ fun LoginScreen(
             value = email,
             onValueChange = { email = it },
             label = { Text("Email") },
-            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
             modifier = Modifier.fillMaxWidth()
         )
+
         Spacer(modifier = Modifier.height(8.dp))
 
         OutlinedTextField(
             value = password,
             onValueChange = { password = it },
             label = { Text("Password") },
-            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+            // Conditionally apply visual transformation
+            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+            trailingIcon = { // Add trailing icon for password visibility toggle
+                val image = if (passwordVisible)
+                    Icons.Filled.Visibility
+                else Icons.Filled.VisibilityOff
+                val description = if (passwordVisible) "Hide password" else "Show password"
+
+                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                    Icon(imageVector = image, description)
+                }
+            },
             modifier = Modifier.fillMaxWidth()
         )
+
         Spacer(modifier = Modifier.height(8.dp))
 
-        if (!isLoginMode) { // Prikazujemo dodatna polja samo kod registracije
+        if (!isLoginMode) { // Only show for registration mode
             OutlinedTextField(
                 value = displayName,
                 onValueChange = { displayName = it },
                 label = { Text("Display Name") },
-                singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(modifier = Modifier.height(8.dp))
-
             OutlinedTextField(
                 value = ageString,
                 onValueChange = { newValue ->
-                    if (newValue.all { it.isDigit() } || newValue.isEmpty()) { // Dopusti samo brojeve
+                    if (newValue.all { it.isDigit() } && newValue.length <= 3) {
                         ageString = newValue
                     }
                 },
-                label = { Text("Age (Optional)") },
+                label = { Text("Age") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(modifier = Modifier.height(8.dp))
@@ -82,12 +101,17 @@ fun LoginScreen(
 
         Button(
             onClick = {
+                message = null
                 scope.launch {
                     val result = if (isLoginMode) {
                         authRepository.loginUser(email, password)
                     } else {
-                        val age = ageString.toIntOrNull() // Pokušaj pretvoriti dob u Int
-                        authRepository.registerUser(email, password, displayName, age)
+                        if (email.isBlank() || password.isBlank() || displayName.isBlank()) {
+                            Result.failure(Exception("Email, password, and display name cannot be empty."))
+                        } else {
+                            val age = ageString.toIntOrNull()
+                            authRepository.registerUser(email, password, displayName, age)
+                        }
                     }
                     if (result.isSuccess) {
                         onLoginSuccess()
@@ -105,8 +129,8 @@ fun LoginScreen(
 
         TextButton(
             onClick = {
-                isLoginMode = !isLoginMode // Prebacivanje između Login i Register
-                message = null // Očisti poruku kod prebacivanja
+                isLoginMode = !isLoginMode
+                message = null
                 email = ""
                 password = ""
                 displayName = ""

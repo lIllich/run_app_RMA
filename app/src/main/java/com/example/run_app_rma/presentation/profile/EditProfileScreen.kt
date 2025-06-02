@@ -1,6 +1,10 @@
 package com.example.run_app_rma.presentation.profile
 
+import android.content.ContentValues
+import android.content.Context
 import android.net.Uri
+import android.os.Build
+import android.provider.MediaStore
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -11,8 +15,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CameraAlt
-import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Image // Import for gallery icon
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,185 +31,188 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
 import com.example.run_app_rma.R
-import com.example.run_app_rma.data.firestore.repository.UserRepository // Uvezi UserRepository
-import com.google.firebase.auth.FirebaseAuth // Uvezi FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore // Uvezi FirebaseFirestore
-import com.google.firebase.storage.FirebaseStorage // Uvezi FirebaseStorage
-import androidx.compose.material.icons.filled.ArrowBack
+import com.example.run_app_rma.data.firestore.repository.UserRepository
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.storage.FirebaseStorage
+import java.io.IOException
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditProfileScreen(
-    modifier: Modifier = Modifier,
     userId: String,
     onProfileUpdated: () -> Unit,
-    onBack: () -> Unit
-) {
-    val context = LocalContext.current
-
-    val editProfileViewModel: EditProfileViewModel = viewModel(
+    onBack: () -> Unit,
+    editProfileViewModel: EditProfileViewModel = viewModel(
         factory = EditProfileViewModel.Factory(
             userRepository = UserRepository(FirebaseFirestore.getInstance()),
             firebaseAuth = FirebaseAuth.getInstance(),
             firebaseStorage = FirebaseStorage.getInstance()
         )
     )
-
+) {
+    val context = LocalContext.current
     val currentUser by editProfileViewModel.currentUser.collectAsState()
     val isLoading by editProfileViewModel.isLoading.collectAsState()
     val errorMessage by editProfileViewModel.errorMessage.collectAsState()
     val successMessage by editProfileViewModel.successMessage.collectAsState()
 
     var displayName by remember { mutableStateOf("") }
-    var ageString by remember { mutableStateOf("") }
+    var age by remember { mutableStateOf<String>("") }
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
-    var profileImageUrl by remember { mutableStateOf<String?>(null) } // Trenutni URL slike s Firestorea
+    var tempCameraUri by remember { mutableStateOf<Uri?>(null) } // Temporary URI for camera output
 
-    // Inicijalizacija polja kada se korisnik učita
+    // Initialize state with current user data when available
     LaunchedEffect(currentUser) {
-        if (currentUser != null) {
-            displayName = currentUser!!.displayName
-            ageString = currentUser!!.age?.toString() ?: ""
-            profileImageUrl = currentUser!!.profileImageUrl
+        currentUser?.let { user ->
+            displayName = user.displayName.ifEmpty { "" }
+            age = user.age?.toString().orEmpty()
+            // Only set selectedImageUri from network if no local image has been picked yet
+            if (selectedImageUri == null && user.profileImageUrl != null && user.profileImageUrl.isNotEmpty()) {
+                selectedImageUri = Uri.parse(user.profileImageUrl)
+            }
         }
     }
 
-    // Prikaz Toast poruka
+    // Observe error and success messages
     LaunchedEffect(errorMessage) {
-        errorMessage?.let {
-            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+        errorMessage?.let { message ->
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
             editProfileViewModel.clearMessages()
         }
     }
 
     LaunchedEffect(successMessage) {
-        successMessage?.let {
-            Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+        successMessage?.let { message ->
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
             editProfileViewModel.clearMessages()
-            onProfileUpdated() // Obavijesti da je profil ažuriran
-            onBack() // Vrati se natrag nakon uspješnog ažuriranja
+            onProfileUpdated()
         }
     }
 
-    // Launcheri za odabir slike
-    val pickMedia = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        if (uri != null) {
+    // Launcher for picking media from gallery
+    val pickMediaLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+        onResult = { uri ->
             selectedImageUri = uri
         }
-    }
+    )
 
-    val takePicture = rememberLauncherForActivityResult(ActivityResultContracts.TakePicturePreview()) { bitmap ->
-        if (bitmap != null) {
-            // Convert bitmap to URI for consistency, this requires saving to a temporary file
-            // For simplicity, for now, we'll assume a direct URI for Gallery and handle bitmap separately if needed.
-            // A more robust solution would save the bitmap to a temp file and get its URI.
-            // For this example, let's keep it simpler.
-            // If you want to handle bitmap, you'd need a utility function to save it and get a Uri.
-            // For now, let's just use the Gallery picker or a more advanced camera intent that gives a Uri.
-            Toast.makeText(context, "Camera input not fully implemented for URI handling in this example.", Toast.LENGTH_SHORT).show()
-            // As a placeholder, if you get a URI from camera: selectedImageUri = camera_uri
+    // Launcher for taking a picture with the camera
+    val takePictureLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture(),
+        onResult = { success ->
+            if (success) {
+                selectedImageUri = tempCameraUri // If picture taken successfully, use the temporary URI
+            } else {
+                tempCameraUri = null // Clear temp URI if failed
+            }
         }
-    }
+    )
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Uredi Profil") },
+                title = { Text("Uredi profil") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Nazad")
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Natrag")
                     }
                 }
             )
         }
-    ) { innerPadding ->
+    ) { paddingValues ->
         Column(
-            modifier = modifier
+            modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
+                .padding(paddingValues)
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Top
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Slika profila
-            Image(
-                painter = if (selectedImageUri != null) {
-                    rememberAsyncImagePainter(selectedImageUri)
-                } else if (profileImageUrl != null && profileImageUrl!!.isNotEmpty()) {
-                    rememberAsyncImagePainter(profileImageUrl)
-                } else {
-                    painterResource(R.drawable.ic_profile_placeholder)
-                },
-                contentDescription = "Profile Picture",
+            // Profile Image
+            Box(
                 modifier = Modifier
                     .size(120.dp)
                     .clip(CircleShape)
-                    .clickable { /* Ovdje otvori BottomSheet ili Dialog za odabir metode */ },
-                contentScale = ContentScale.Crop
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            TextButton(onClick = {
-                // Ovdje bi se otvarao BottomSheet ili Dialog za odabir izvora slike
-                // Za demo, direktno pokrećem galeriju.
-                pickMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-            }) {
-                Text("Promijeni sliku")
+                    .clickable { /* No direct click on image anymore to show dialog */ },
+                contentAlignment = Alignment.Center
+            ) {
+                val painter = if (selectedImageUri != null && selectedImageUri.toString().isNotEmpty()) {
+                    rememberAsyncImagePainter(selectedImageUri)
+                } else {
+                    painterResource(R.drawable.ic_profile_placeholder) // Default placeholder
+                }
+                Image(
+                    painter = painter,
+                    contentDescription = "Profile Picture",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+                // The camera icon overlay is removed as separate buttons will handle this
             }
+
+            // Row with camera and gallery icons
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.Center
             ) {
                 IconButton(onClick = {
-                    pickMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    pickMediaLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                 }) {
                     Icon(Icons.Default.Image, contentDescription = "Odaberi iz galerije")
                 }
                 Spacer(modifier = Modifier.width(16.dp))
                 IconButton(onClick = {
-                    // Za kameru je potrebno HANDLEIRATI PRIVREMENI URI
-                    // Ovo je samo primjer, za potpunu funkcionalnost kamere treba više koda.
-                    // npr. takePicture.launch(createImageUri(context))
-                    Toast.makeText(context, "Kamera funkcionalnost zahtijeva dodatnu implementaciju URI-ja.", Toast.LENGTH_SHORT).show()
+                    val newUri = createImageUri(context)
+                    if (newUri != null) {
+                        tempCameraUri = newUri
+                        takePictureLauncher.launch(newUri)
+                    } else {
+                        Toast.makeText(context, "Nije moguće stvoriti datoteku za sliku.", Toast.LENGTH_SHORT).show()
+                    }
                 }) {
                     Icon(Icons.Default.CameraAlt, contentDescription = "Snimi kamerom")
                 }
             }
+            // End of new Row with icons
 
-
-            Spacer(modifier = Modifier.height(24.dp))
-
+            // Display Name Input
             OutlinedTextField(
                 value = displayName,
                 onValueChange = { displayName = it },
                 label = { Text("Ime") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !isLoading
             )
-            Spacer(modifier = Modifier.height(8.dp))
 
+            // Age Input
             OutlinedTextField(
-                value = ageString,
+                value = age,
                 onValueChange = { newValue ->
                     if (newValue.all { it.isDigit() } || newValue.isEmpty()) {
-                        ageString = newValue
+                        age = newValue
                     }
                 },
-                label = { Text("Dob (neobavezno)") },
+                label = { Text("Dob") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !isLoading
             )
-            Spacer(modifier = Modifier.height(24.dp))
 
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Save Changes Button
             Button(
                 onClick = {
-                    val age = ageString.toIntOrNull()
+                    val ageInt = age.toIntOrNull()
                     editProfileViewModel.updateUserProfile(
                         userId = userId,
                         displayName = displayName,
-                        age = age,
+                        age = ageInt,
                         profileImageUri = selectedImageUri
                     )
                 },
@@ -221,19 +229,21 @@ fun EditProfileScreen(
     }
 }
 
-/*
+
 // Helper function to create a temporary URI for camera output
-// Requires permissions WRITE_EXTERNAL_STORAGE (Android < Q) and FILE_PROVIDER setup
-// For Android Q+, use MediaStore.createWriteRequest
-fun createImageUri(context: Context): Uri {
+fun createImageUri(context: Context): Uri? {
+    val name = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
     val contentValues = ContentValues().apply {
-        put(MediaStore.MediaColumns.DISPLAY_NAME, "temp_image_${System.currentTimeMillis()}.jpg")
+        put(MediaStore.MediaColumns.DISPLAY_NAME, "JPEG_${name}.jpg")
         put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/RunAppRMA")
+            put(MediaStore.MediaColumns.RELATIVE_PATH, android.os.Environment.DIRECTORY_PICTURES + "/RunAppRMA")
         }
     }
-    return context.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
-        ?: throw IOException("Failed to create new MediaStore record.")
+    return try {
+        context.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
+    } catch (e: IOException) {
+        e.printStackTrace()
+        null
+    }
 }
-*/

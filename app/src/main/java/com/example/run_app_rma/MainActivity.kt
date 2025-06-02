@@ -32,6 +32,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
 
+
 class MainActivity : ComponentActivity() {
 
     private lateinit var locationService: LocationService
@@ -42,12 +43,30 @@ class MainActivity : ComponentActivity() {
     private lateinit var firebaseAuth: FirebaseAuth
     private lateinit var firebaseStorage: FirebaseStorage
 
-    private val locationPermissionRequest =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
-            if (!isGranted) {
-                Toast.makeText(this, "Location permission required!", Toast.LENGTH_LONG).show()
-            }
+    // Use a single ActivityResultLauncher for multiple permissions
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val fineLocationGranted = permissions[android.Manifest.permission.ACCESS_FINE_LOCATION] ?: false
+        val coarseLocationGranted = permissions[android.Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
+        val cameraGranted = permissions[android.Manifest.permission.CAMERA] ?: false
+        val readExternalStorageGranted = permissions[android.Manifest.permission.READ_EXTERNAL_STORAGE] ?: false
+        val readMediaImagesGranted = permissions[android.Manifest.permission.READ_MEDIA_IMAGES] ?: false // For Android 13+
+
+        if (fineLocationGranted && coarseLocationGranted) {
+            Toast.makeText(this, "Location permissions granted.", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(this, "Location permissions denied.", Toast.LENGTH_SHORT).show()
         }
+
+        if (cameraGranted) {
+            Toast.makeText(this, "Camera permission granted.", Toast.LENGTH_SHORT).show()
+        }
+        // Check for relevant storage permissions based on Android version
+        if (readExternalStorageGranted || readMediaImagesGranted) {
+            Toast.makeText(this, "Read storage permission granted.", Toast.LENGTH_SHORT).show()
+        }
+    }
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -57,18 +76,26 @@ class MainActivity : ComponentActivity() {
         locationService = LocationService(this)
         sensorService = SensorService(this)
         appDatabase = AppDatabase.getInstance(applicationContext)
-        authRepository = AuthRepository(applicationContext)
+        authRepository = AuthRepository(applicationContext) // CORRECTED: Pass applicationContext
         userRepository = UserRepository(FirebaseFirestore.getInstance())
         firebaseAuth = FirebaseAuth.getInstance()
         firebaseStorage = FirebaseStorage.getInstance()
 
-        locationPermissionRequest.launch(android.Manifest.permission.ACCESS_FINE_LOCATION)
+        // Request all necessary permissions here
+        requestPermissionLauncher.launch(
+            arrayOf(
+                android.Manifest.permission.ACCESS_FINE_LOCATION,
+                android.Manifest.permission.ACCESS_COARSE_LOCATION,
+                android.Manifest.permission.CAMERA,
+                android.Manifest.permission.READ_EXTERNAL_STORAGE, // For older Android versions
+                android.Manifest.permission.WRITE_EXTERNAL_STORAGE, // For older Android versions
+                android.Manifest.permission.READ_MEDIA_IMAGES // For Android 13+
+            )
+        )
 
         setContent {
             Run_app_RMATheme {
-                var isLoggedIn by remember { mutableStateOf(authRepository.isLoggedIn()) }
                 val navController = rememberNavController()
-
 
                 val runViewModel: RunViewModel = viewModel(
                     factory = object: androidx.lifecycle.ViewModelProvider.Factory {
@@ -88,29 +115,35 @@ class MainActivity : ComponentActivity() {
                     }
                 )
 
+                // Determine start destination based on current login status
+                val isLoggedIn by remember { mutableStateOf(authRepository.isLoggedIn()) } // Observing authRepository.isLoggedIn()
+
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     NavHost(
                         navController = navController,
-                        startDestination = if (isLoggedIn) "main" else "login",
+                        startDestination = if (isLoggedIn) "main" else "login", // Use isLoggedIn state
                         modifier = Modifier.padding(innerPadding)
                     ) {
                         composable("login") {
                             LoginScreen(authRepository = authRepository) {
-                                isLoggedIn = true
+                                // On successful login, navigate to main and update isLoggedIn state
                                 navController.navigate("main") {
                                     popUpTo("login") { inclusive = true }
                                 }
+                                // No explicit isLoggedIn = true needed here as NavHost observes it.
+                                // If you want immediate UI update for isLoggedIn, it needs to be MutableStateOf
+                                // and updated here. However, `authRepository.isLoggedIn()` directly reflects state.
                             }
                         }
                         composable("main") {
-                            // navController NIJE proslijeđen MainScreenWithTabs
+                            // Pass all necessary dependencies to MainScreenWithTabs
                             MainScreenWithTabs(
                                 runViewModel = runViewModel,
                                 userRepository = userRepository,
                                 firebaseAuth = firebaseAuth,
-                                authRepository = authRepository,
+                                authRepository = authRepository, // Correctly pass the instance
                                 onLogout = {
-                                    isLoggedIn = false
+                                    authRepository.logout() // Call logout on the repository
                                     navController.navigate("login") {
                                         popUpTo("main") { inclusive = true }
                                     }
@@ -126,8 +159,10 @@ class MainActivity : ComponentActivity() {
                                 EditProfileScreen(
                                     userId = userId,
                                     onProfileUpdated = {
-                                        // NEMA postavljanja zastavice u SavedStateHandle
-                                        // Prazan lambda ili uklonite 'onProfileUpdated' ako ga EditProfileScreen dopušta
+                                        // When profile is updated, navigate back.
+                                        // MainScreenWithTabs will handle refreshing the profile data
+                                        // when it becomes visible again.
+                                        navController.popBackStack()
                                     },
                                     onBack = { navController.popBackStack() }
                                 )
