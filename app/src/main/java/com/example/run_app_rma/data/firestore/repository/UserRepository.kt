@@ -32,7 +32,8 @@ class UserRepository(private val firestore: FirebaseFirestore = FirebaseFirestor
         }
     }
 
-    suspend fun updateUserProfile(userId: String, updates: Map<String, Any>): Result<Unit> {
+    // ISPRAVKA OVDJE: Promijeni tip 'updates' na Map<String, Any?>
+    suspend fun updateUserProfile(userId: String, updates: Map<String, Any?>): Result<Unit> {
         return try {
             usersCollection.document(userId).update(updates).await()
             Result.success(Unit)
@@ -46,7 +47,7 @@ class UserRepository(private val firestore: FirebaseFirestore = FirebaseFirestor
             val users = usersCollection
                 .orderBy("displayName")
                 .startAt(query)
-                .endAt(query + '\uf8ff')    // unicode for end of string range
+                .endAt(query + '\uf8ff')
                 .get()
                 .await()
                 .toObjects(User::class.java)

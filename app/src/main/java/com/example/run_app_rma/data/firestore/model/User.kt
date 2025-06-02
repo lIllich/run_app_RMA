@@ -11,6 +11,7 @@ data class User(
     val profileImageUrl: String? = null,
     val totalDistanceRun: Float = 0f,   // m
     val totalRuns: Int = 0,
+    val age: Int? = null, // Dodano polje za dob (nullable)
     val lastRunTimestamp: Long? = null,
     @ServerTimestamp val createdAt: Date? = null    // firestore timestamp
 )
