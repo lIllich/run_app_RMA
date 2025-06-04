@@ -52,11 +52,36 @@ class RunPostRepository(private val firestore: FirebaseFirestore = FirebaseFires
         }
     }
 
-    suspend fun getAllOtherUsersRunPosts(currentUserId: String): Result<List<RunPost>> {
+    // This function will be removed as we're switching to showing only followed users' posts
+    // suspend fun getAllOtherUsersRunPosts(currentUserId: String): Result<List<RunPost>> {
+    //     return try {
+    //         val posts = postsCollection
+    //             .whereNotEqualTo("userId", currentUserId)
+    //             .orderBy("timestamp", Query.Direction.ASCENDING)
+    //             .get()
+    //             .await()
+    //             .toObjects(RunPost::class.java)
+    //         Result.success(posts)
+    //     } catch (e: Exception) {
+    //         Result.failure(e)
+    //     }
+    // }
+
+    /**
+     * Fetches run posts from a list of specified user IDs.
+     * @param userIds A list of user IDs whose posts to fetch.
+     * @return A Result containing a list of RunPost objects or an Exception.
+     */
+    suspend fun getRunPostsByUsers(userIds: List<String>): Result<List<RunPost>> {
+        if (userIds.isEmpty()) {
+            return Result.success(emptyList()) // No users to follow, so no posts
+        }
         return try {
+            // Firestore 'in' query supports up to 10 user IDs
+            // If you need to query more than 10, you'll need to split the list and make multiple queries
             val posts = postsCollection
-                .whereNotEqualTo("userId", currentUserId) // Exclude current user's posts
-                .orderBy("timestamp", Query.Direction.ASCENDING) // <--- CHANGED TO ASCENDING TO MATCH FIRESTORE'S INDEX REQUIREMENT
+                .whereIn("userId", userIds)
+                .orderBy("timestamp", Query.Direction.DESCENDING)
                 .get()
                 .await()
                 .toObjects(RunPost::class.java)
@@ -65,6 +90,7 @@ class RunPostRepository(private val firestore: FirebaseFirestore = FirebaseFires
             Result.failure(e)
         }
     }
+
 
     suspend fun getLikesByUser(userId: String): Result<List<Like>> {
         return try {

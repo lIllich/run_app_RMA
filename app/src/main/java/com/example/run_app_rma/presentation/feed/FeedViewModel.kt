@@ -10,6 +10,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.run_app_rma.data.firestore.model.RunPost
 import com.example.run_app_rma.data.firestore.model.User
+import com.example.run_app_rma.data.firestore.repository.FollowRepository // Import FollowRepository
 import com.example.run_app_rma.data.firestore.repository.RunPostRepository
 import com.example.run_app_rma.data.firestore.repository.UserRepository
 import com.google.firebase.auth.FirebaseAuth
@@ -21,7 +22,8 @@ import kotlinx.coroutines.launch
 class FeedViewModel(
     private val runPostRepository: RunPostRepository,
     private val userRepository: UserRepository,
-    private val firebaseAuth: FirebaseAuth
+    private val firebaseAuth: FirebaseAuth,
+    private val followRepository: FollowRepository // Add FollowRepository
 ) : ViewModel() {
 
     private val _newPosts = mutableStateListOf<RunPost>()
@@ -42,7 +44,9 @@ class FeedViewModel(
     private val _userProfiles = mutableStateOf(emptyMap<String, User>())
     val userProfiles: State<Map<String, User>> = _userProfiles
 
-    // Define a TAG for logging
+    private val _userLikedPostIds = MutableStateFlow<Set<String>>(emptySet())
+    val userLikedPostIds: StateFlow<Set<String>> = _userLikedPostIds.asStateFlow()
+
     private val TAG = "FeedViewModel"
 
     init {
@@ -63,63 +67,89 @@ class FeedViewModel(
         _errorMessage.value = null
         viewModelScope.launch {
             try {
-                // 1. Fetch all posts from other users, ordered by timestamp ASCENDING (to match Firestore index)
-                val allOtherUsersPostsResult = runPostRepository.getAllOtherUsersRunPosts(currentUserId)
-                Log.d(TAG, "Fetched all other users posts result: $allOtherUsersPostsResult")
+                // 1. Fetch IDs of users the current user is following
+                val followingIdsResult = followRepository.getFollowingIds(currentUserId)
+                Log.d(TAG, "Fetched following IDs result: $followingIdsResult")
 
-                // 2. Fetch all likes and comments made by the current user
-                val userLikesResult = runPostRepository.getLikesByUser(currentUserId)
-                Log.d(TAG, "Fetched user likes result: $userLikesResult")
+                if (followingIdsResult.isSuccess) {
+                    val followingIds = followingIdsResult.getOrNull() ?: emptyList()
+                    Log.d(TAG, "User is following: $followingIds")
 
-                val userCommentsResult = runPostRepository.getCommentsByUser(currentUserId)
-                Log.d(TAG, "Fetched user comments result: $userCommentsResult")
-
-                if (allOtherUsersPostsResult.isSuccess && userLikesResult.isSuccess && userCommentsResult.isSuccess) {
-                    val allPosts = allOtherUsersPostsResult.getOrNull() ?: emptyList()
-                    val userLikedPostIds = userLikesResult.getOrNull()?.map { it.postId }?.toSet() ?: emptySet()
-                    val userCommentedPostIds = userCommentsResult.getOrNull()?.map { it.postId }?.toSet() ?: emptySet()
-
-                    Log.d(TAG, "Total posts fetched: ${allPosts.size}")
-                    Log.d(TAG, "User liked post IDs: $userLikedPostIds")
-                    Log.d(TAG, "User commented post IDs: $userCommentedPostIds")
-
-                    _newPosts.clear()
-                    _olderPosts.clear()
-
-                    val postsToFetchUserProfilesFor = mutableSetOf<String>()
-                    val newPostsList = mutableListOf<RunPost>()
-                    val olderPostsList = mutableListOf<RunPost>()
-
-                    allPosts.forEach { post ->
-                        postsToFetchUserProfilesFor.add(post.userId)
-                        val hasInteracted = userLikedPostIds.contains(post.id) || userCommentedPostIds.contains(post.id)
-                        if (hasInteracted) {
-                            olderPostsList.add(post)
-                            Log.d(TAG, "Categorized post ${post.id} as OLDER (interacted).")
-                        } else {
-                            newPostsList.add(post)
-                            Log.d(TAG, "Categorized post ${post.id} as NEW (not interacted).")
-                        }
+                    if (followingIds.isEmpty()) {
+                        _newPosts.clear()
+                        _olderPosts.clear()
+                        _userProfiles.value = emptyMap()
+                        _userLikedPostIds.value = emptySet()
+                        _errorMessage.value = "Ne pratite nijednog korisnika. Pratite nekoga da vidite objave."
+                        _isLoading.value = false
+                        return@launch // Exit early if not following anyone
                     }
 
-                    // Sort in memory after fetching in ascending order to display in descending order
-                    _newPosts.addAll(newPostsList.sortedByDescending { it.timestamp })
-                    _olderPosts.addAll(olderPostsList.sortedByDescending { it.timestamp })
+                    // 2. Fetch posts from the users the current user is following
+                    val followedUsersPostsResult = runPostRepository.getRunPostsByUsers(followingIds)
+                    Log.d(TAG, "Fetched followed users posts result: $followedUsersPostsResult")
 
-                    Log.d(TAG, "New posts count: ${_newPosts.size}")
-                    Log.d(TAG, "Older posts count: ${_olderPosts.size}")
+                    // 3. Fetch all likes made by the current user
+                    val userLikesResult = runPostRepository.getLikesByUser(currentUserId)
+                    Log.d(TAG, "Fetched user likes result: $userLikesResult")
 
-                    // Fetch user profiles for all unique user IDs found in posts
-                    fetchUserProfilesForPosts(postsToFetchUserProfilesFor.toList())
+                    // 4. Fetch all comments made by the current user (though not directly used for sorting, good to have)
+                    val userCommentsResult = runPostRepository.getCommentsByUser(currentUserId)
+                    Log.d(TAG, "Fetched user comments result: $userCommentsResult")
 
+
+                    if (followedUsersPostsResult.isSuccess && userLikesResult.isSuccess && userCommentsResult.isSuccess) {
+                        val allPosts = followedUsersPostsResult.getOrNull() ?: emptyList()
+                        val userLikedPostIds = userLikesResult.getOrNull()?.map { it.postId }?.toSet() ?: emptySet()
+                        val userCommentedPostIds = userCommentsResult.getOrNull()?.map { it.postId }?.toSet() ?: emptySet()
+
+                        Log.d(TAG, "Total posts fetched: ${allPosts.size}")
+                        Log.d(TAG, "User liked post IDs: $userLikedPostIds")
+                        Log.d(TAG, "User commented post IDs: $userCommentedPostIds")
+
+                        _newPosts.clear()
+                        _olderPosts.clear()
+                        _userLikedPostIds.value = userLikedPostIds // Update the liked post IDs state
+
+                        val postsToFetchUserProfilesFor = mutableSetOf<String>()
+                        val newPostsList = mutableListOf<RunPost>()
+                        val olderPostsList = mutableListOf<RunPost>()
+
+                        allPosts.forEach { post ->
+                            postsToFetchUserProfilesFor.add(post.userId)
+                            // A post is considered "interacted" if the user has liked it OR commented on it
+                            val hasInteracted = userLikedPostIds.contains(post.id) || userCommentedPostIds.contains(post.id)
+                            if (hasInteracted) {
+                                olderPostsList.add(post)
+                                Log.d(TAG, "Categorized post ${post.id} as OLDER (interacted).")
+                            } else {
+                                newPostsList.add(post)
+                                Log.d(TAG, "Categorized post ${post.id} as NEW (not interacted).")
+                            }
+                        }
+
+                        // Sort in memory after fetching in descending order for display
+                        _newPosts.addAll(newPostsList.sortedByDescending { it.timestamp })
+                        _olderPosts.addAll(olderPostsList.sortedByDescending { it.timestamp })
+
+                        Log.d(TAG, "New posts count: ${_newPosts.size}")
+                        Log.d(TAG, "Older posts count: ${_olderPosts.size}")
+
+                        // Fetch user profiles for all unique user IDs found in posts
+                        fetchUserProfilesForPosts(postsToFetchUserProfilesFor.toList())
+
+                    } else {
+                        val errorMsg = "Greška pri učitavanju objava: " +
+                                (followedUsersPostsResult.exceptionOrNull()?.message ?: "") +
+                                (userLikesResult.exceptionOrNull()?.message ?: "") +
+                                (userCommentsResult.exceptionOrNull()?.message ?: "")
+                        _errorMessage.value = errorMsg
+                        Log.e(TAG, "Error loading feed posts: $errorMsg",
+                            followedUsersPostsResult.exceptionOrNull() ?: userLikesResult.exceptionOrNull() ?: userCommentsResult.exceptionOrNull())
+                    }
                 } else {
-                    val errorMsg = "Greška pri učitavanju objava: " +
-                            (allOtherUsersPostsResult.exceptionOrNull()?.message ?: "") +
-                            (userLikesResult.exceptionOrNull()?.message ?: "") +
-                            (userCommentsResult.exceptionOrNull()?.message ?: "")
-                    _errorMessage.value = errorMsg
-                    Log.e(TAG, "Error loading feed posts: $errorMsg",
-                        allOtherUsersPostsResult.exceptionOrNull() ?: userLikesResult.exceptionOrNull() ?: userCommentsResult.exceptionOrNull())
+                    _errorMessage.value = followingIdsResult.exceptionOrNull()?.message ?: "Greška pri učitavanju korisnika koje pratite."
+                    Log.e(TAG, "Error fetching following IDs: ${followingIdsResult.exceptionOrNull()?.message}")
                 }
             } catch (e: Exception) {
                 _errorMessage.value = "Došlo je do greške: ${e.message}"
@@ -186,12 +216,13 @@ class FeedViewModel(
     class Factory(
         private val runPostRepository: RunPostRepository,
         private val userRepository: UserRepository,
-        private val firebaseAuth: FirebaseAuth
+        private val firebaseAuth: FirebaseAuth,
+        private val followRepository: FollowRepository // Add FollowRepository to factory
     ) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(FeedViewModel::class.java)) {
                 @Suppress("UNCHECKED_CAST")
-                return FeedViewModel(runPostRepository, userRepository, firebaseAuth) as T
+                return FeedViewModel(runPostRepository, userRepository, firebaseAuth, followRepository) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class")
         }

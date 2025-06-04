@@ -1,20 +1,28 @@
-package com.example.run_app_rma.presentation.feed
+package com.example.run_app_rma.presentation.common
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DirectionsRun
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.DirectionsRun // Import DirectionsRun icon
-import androidx.compose.material3.*
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -23,9 +31,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
-import com.example.run_app_rma.R // Assuming you have a default profile placeholder
+import com.example.run_app_rma.R
 import com.example.run_app_rma.data.firestore.model.RunPost
 import com.example.run_app_rma.data.firestore.model.User
 import java.text.DecimalFormat
@@ -33,103 +40,26 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+/**
+ * Reusable Composable for displaying a run post card.
+ * Can be used in both FeedScreen and ProfileScreen.
+ *
+ * @param post The RunPost object to display.
+ * @param user The User object of the post creator. Can be null if profile not found.
+ * @param dateFormat SimpleDateFormat for formatting timestamps.
+ * @param decimalFormat DecimalFormat for formatting numerical values like distance and pace.
+ * @param onLikeClick Lambda to be invoked when the like button is clicked.
+ * Receives the postId and a boolean indicating if it's currently liked.
+ * @param isLiked Indicates if the current user has liked this post.
+ */
 @Composable
-fun FeedScreen(
-    modifier: Modifier = Modifier,
-    feedViewModel: FeedViewModel = viewModel() // ViewModel will be provided by MainScreenWithTabs
-) {
-    // CORRECTED: Directly access mutableStateListOf properties. No .collectAsState() needed here.
-    val newPosts = feedViewModel.newPosts
-    val olderPosts = feedViewModel.olderPosts
-    val isLoading by feedViewModel.isLoading.collectAsState()
-    val errorMessage by feedViewModel.errorMessage.collectAsState()
-    val userProfiles by feedViewModel.userProfiles // Directly observe the State<Map>
-
-    val dateFormat = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
-    val decimalFormat = DecimalFormat("#.##")
-
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-
-
-        if (isLoading) {
-            CircularProgressIndicator(modifier = Modifier.padding(16.dp))
-        }
-
-        errorMessage?.let { message ->
-            Text(
-                text = message,
-                color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.padding(8.dp)
-            )
-        }
-
-        // CORRECTED: Use .size == 0 for isEmpty() check
-        if (newPosts.size == 0 && olderPosts.size == 0 && !isLoading) {
-            Text("Nema objava za prikaz.")
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                // CORRECTED: Use .isNotEmpty() for Collection
-                if (newPosts.isNotEmpty()) {
-                    item {
-                        Text(
-                            text = "Nove objave",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(vertical = 8.dp)
-                        )
-                    }
-                    items(newPosts, key = { it.id }) { post ->
-                        FeedPostCard(
-                            post = post,
-                            user = userProfiles[post.userId], // Pass the user profile
-                            dateFormat = dateFormat,
-                            decimalFormat = decimalFormat,
-                            onLikeClick = { postId, isLiked -> feedViewModel.toggleLike(postId, isLiked) }
-                            // Add onCommentClick if you implement comments later
-                        )
-                    }
-                }
-
-                // CORRECTED: Use .isNotEmpty() for Collection
-                if (olderPosts.isNotEmpty()) {
-                    item {
-                        Text(
-                            text = "Starije objave",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(vertical = 8.dp)
-                        )
-                    }
-                    items(olderPosts, key = { it.id }) { post ->
-                        FeedPostCard(
-                            post = post,
-                            user = userProfiles[post.userId],
-                            dateFormat = dateFormat,
-                            decimalFormat = decimalFormat,
-                            onLikeClick = { postId, isLiked -> feedViewModel.toggleLike(postId, isLiked) }
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun FeedPostCard(
+fun RunPostCard(
     post: RunPost,
-    user: User?, // User profile for the post creator
+    user: User?,
     dateFormat: SimpleDateFormat,
     decimalFormat: DecimalFormat,
-    onLikeClick: (String, Boolean) -> Unit
+    onLikeClick: (String, Boolean) -> Unit,
+    isLiked: Boolean
 ) {
     Card(
         modifier = Modifier
@@ -176,7 +106,7 @@ fun FeedPostCard(
                 horizontalArrangement = Arrangement.SpaceAround
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Default.DirectionsRun, contentDescription = "Distance") // DirectionsRun is now imported
+                    Icon(Icons.Default.DirectionsRun, contentDescription = "Distance")
                     Text("${decimalFormat.format(post.distance / 1000)} km", style = MaterialTheme.typography.bodyLarge)
                     Text("Udaljenost", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
                 }
@@ -186,7 +116,7 @@ fun FeedPostCard(
                     Text("Tempo", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Default.Favorite, contentDescription = "Duration") // Placeholder icon
+                    Icon(Icons.Default.Favorite, contentDescription = "Duration") // Reusing Favorite icon for duration placeholder
                     val durationMillis = post.endTime - post.startTime
                     val minutes = (durationMillis / (1000 * 60)) % 60
                     val hours = (durationMillis / (1000 * 60 * 60))
@@ -219,9 +149,8 @@ fun FeedPostCard(
                 // Like Button
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.clickable { onLikeClick(post.id, post.likesCount > 0) } // Simplified isLiked check for now
+                    modifier = Modifier.clickable { onLikeClick(post.id, isLiked) }
                 ) {
-                    val isLiked = post.likesCount > 0 // Placeholder, will need actual check
                     Icon(
                         imageVector = if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                         contentDescription = "Like",

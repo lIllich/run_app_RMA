@@ -4,6 +4,7 @@ import android.location.Location
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider // Import ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.run_app_rma.data.dao.LocationDao
 import com.example.run_app_rma.data.dao.RunDao
@@ -164,5 +165,22 @@ class RunViewModel(
         super.onCleared()
         locationService.stopLocationUpdates()
         sensorService.stopListening()
+    }
+
+    // Factory for RunViewModel
+    class Factory(
+        private val runDao: RunDao,
+        private val locationDao: LocationDao,
+        private val sensorDao: SensorDao,
+        private val locationService: LocationService,
+        private val sensorService: SensorService
+    ) : ViewModelProvider.Factory {
+        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            if (modelClass.isAssignableFrom(RunViewModel::class.java)) {
+                @Suppress("UNCHECKED_CAST")
+                return RunViewModel(runDao, locationDao, sensorDao, locationService, sensorService) as T
+            }
+            throw IllegalArgumentException("Unknown ViewModel class")
+        }
     }
 }
