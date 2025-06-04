@@ -10,9 +10,9 @@ import kotlinx.coroutines.tasks.await
 
 class RunPostRepository(private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()) {
 
-    private val postsCollection = firestore.collection("post")
-    private val likesCollection = firestore.collection("like")
-    private val commentsCollection = firestore.collection("comment")
+    private val postsCollection = firestore.collection("posts")
+    private val likesCollection = firestore.collection("likes")
+    private val commentsCollection = firestore.collection("comments")
 
     suspend fun createRunPost(runPost: RunPost): Result<String> {
         return try {
@@ -52,19 +52,11 @@ class RunPostRepository(private val firestore: FirebaseFirestore = FirebaseFires
         }
     }
 
-    // simplified -> posts from followed users or general latest if no following
-    suspend fun getFeedRunPosts(followingIds: List<String>): Result<List<RunPost>> {
+    suspend fun getAllOtherUsersRunPosts(currentUserId: String): Result<List<RunPost>> {
         return try {
-            val query = if(followingIds.isNotEmpty()) {
-                postsCollection.whereIn("userId", followingIds)
-            } else {
-                // show latest for everyone -> implement discover later
-                postsCollection
-            }
-
-            val posts = query
-                .orderBy("timestamp", Query.Direction.DESCENDING)
-                .limit(20)
+            val posts = postsCollection
+                .whereNotEqualTo("userId", currentUserId) // Exclude current user's posts
+                .orderBy("timestamp", Query.Direction.ASCENDING) // <--- CHANGED TO ASCENDING TO MATCH FIRESTORE'S INDEX REQUIREMENT
                 .get()
                 .await()
                 .toObjects(RunPost::class.java)
@@ -74,12 +66,35 @@ class RunPostRepository(private val firestore: FirebaseFirestore = FirebaseFires
         }
     }
 
+    suspend fun getLikesByUser(userId: String): Result<List<Like>> {
+        return try {
+            val likes = likesCollection
+                .whereEqualTo("userId", userId)
+                .get()
+                .await()
+                .toObjects(Like::class.java)
+            Result.success(likes)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getCommentsByUser(userId: String): Result<List<Comment>> {
+        return try {
+            val comments = commentsCollection
+                .whereEqualTo("userId", userId)
+                .get()
+                .await()
+                .toObjects(Comment::class.java)
+            Result.success(comments)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun likePost(postId: String, userId: String): Result<Unit> {
         return try {
-            // create like document
             likesCollection.add(Like(postId = postId, userId = userId)).await()
-
-            // increment likes count on the post
             postsCollection.document(postId).update("likesCount", FieldValue.increment(1)).await()
             Result.success(Unit)
         } catch (e: Exception) {
@@ -89,7 +104,6 @@ class RunPostRepository(private val firestore: FirebaseFirestore = FirebaseFires
 
     suspend fun unlikePost(postId: String, userId: String): Result<Unit> {
         return try {
-            // find and delete like document
             likesCollection
                 .whereEqualTo("postId", postId)
                 .whereEqualTo("userId", userId)
@@ -98,7 +112,6 @@ class RunPostRepository(private val firestore: FirebaseFirestore = FirebaseFires
                 .documents
                 .forEach { it.reference.delete().await() }
 
-            // decrement likes count on the post
             postsCollection.document(postId).update("likesCount", FieldValue.increment(-1)).await()
             Result.success(Unit)
         } catch (e: Exception) {
@@ -123,8 +136,6 @@ class RunPostRepository(private val firestore: FirebaseFirestore = FirebaseFires
     suspend fun addComment(comment: Comment): Result<Unit> {
         return try {
             commentsCollection.add(comment).await()
-
-            // increment comment count on the post
             postsCollection.document(comment.postId).update("commentsCount", FieldValue.increment(1)).await()
             Result.success(Unit)
         } catch (e: Exception) {

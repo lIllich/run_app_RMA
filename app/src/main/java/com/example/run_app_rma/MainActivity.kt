@@ -179,11 +179,3 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    Run_app_RMATheme {
-        Text("Hello Android!")
-    }
-}

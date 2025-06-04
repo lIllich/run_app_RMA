@@ -29,6 +29,9 @@ import coil.compose.rememberAsyncImagePainter
 import com.example.run_app_rma.R // Pretpstavka da postoji defaultna slika
 import com.example.run_app_rma.data.firestore.model.User
 import java.text.DecimalFormat
+import java.text.SimpleDateFormat // Import SimpleDateFormat
+import java.util.Date // Import Date
+import java.util.Locale // Import Locale
 
 @Composable
 fun ProfileScreen(
@@ -36,7 +39,7 @@ fun ProfileScreen(
     onLogout: () -> Unit,
     onEditProfile: (String) -> Unit
 ) {
-    val currentUser by profileViewModel.currentUser.collectAsState() // Corrected: collectAsState for currentUser
+    val currentUser by profileViewModel.currentUser.collectAsState()
     val isLoading by profileViewModel.isLoading.collectAsState()
     val errorMessage by profileViewModel.errorMessage.collectAsState()
 
@@ -56,20 +59,20 @@ fun ProfileScreen(
                 Text("Pokušaj ponovo")
             }
         } else if (currentUser != null) {
-            UserProfileContent(user = currentUser!!) // Non-null assertion after check
+            UserProfileContent(user = currentUser!!)
             Spacer(modifier = Modifier.height(32.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceAround
             ) {
                 Button(
-                    onClick = { currentUser?.let { onEditProfile(it.id) } }, // Corrected: access user.id
+                    onClick = { currentUser?.let { onEditProfile(it.id) } },
                     modifier = Modifier.weight(1f).padding(end = 8.dp)
                 ) {
                     Text("Uredi profil")
                 }
                 Button(
-                    onClick = { onLogout() }, // Corrected: use onLogout lambda from parent
+                    onClick = { onLogout() },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                     modifier = Modifier.weight(1f).padding(start = 8.dp)
                 ) {
@@ -78,7 +81,7 @@ fun ProfileScreen(
             }
         } else {
             Text(text = "Korisnik nije prijavljen ili profil nije pronađen.")
-            Button(onClick = { onLogout() }) { // Ensure this triggers logout flow if no user
+            Button(onClick = { onLogout() }) {
                 Text("Idi na prijavu")
             }
         }
@@ -88,12 +91,14 @@ fun ProfileScreen(
 @Composable
 fun UserProfileContent(user: User) {
     val decimalFormat = DecimalFormat("#.##")
+    // Define the date format
+    val dateFormat = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
 
     Image(
         painter = if (user.profileImageUrl != null && user.profileImageUrl.isNotEmpty()) {
             rememberAsyncImagePainter(user.profileImageUrl)
         } else {
-            painterResource(R.drawable.ic_profile_placeholder) // Dodaj defaultnu sliku profila u drawable
+            painterResource(R.drawable.ic_profile_placeholder)
         },
         contentDescription = "Profile Picture",
         modifier = Modifier
@@ -109,12 +114,12 @@ fun UserProfileContent(user: User) {
     }
     Text(text = "Ukupna udaljenost: ${decimalFormat.format(user.totalDistanceRun)} km")
     Text(text = "Ukupno trčanja: ${user.totalRuns}")
-    // Display lastRunTimestamp if available
+    // Display lastRunTimestamp if available and format it
     user.lastRunTimestamp?.let { timestamp ->
-        // Format timestamp as needed, e.g., using SimpleDateFormat
-        // val dateFormat = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
-        // Text(text = "Zadnje trčanje: ${dateFormat.format(Date(timestamp))}")
-        Text(text = "Zadnje trčanje (timestamp): $timestamp") // For now, just display raw timestamp
+        Text(text = "Zadnje trčanje: ${dateFormat.format(Date(timestamp))}")
     }
-
+    // Display createdAt if available
+    user.createdAt?.let { date ->
+        Text(text = "Član od: ${dateFormat.format(date)}")
+    }
 }

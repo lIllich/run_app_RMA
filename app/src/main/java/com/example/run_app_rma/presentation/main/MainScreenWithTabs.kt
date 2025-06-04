@@ -11,7 +11,7 @@ import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.DirectionsRun
 import androidx.compose.material.icons.filled.DynamicFeed
 import androidx.compose.material.icons.filled.People
-import androidx.compose.material.icons.filled.UploadFile // New icon for "Objavi"
+import androidx.compose.material.icons.filled.UploadFile // Keep this for "Objavi"
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -28,7 +28,8 @@ import com.example.run_app_rma.data.firestore.repository.FollowRepository
 import com.example.run_app_rma.data.firestore.repository.RunPostRepository // Import RunPostRepository
 import com.example.run_app_rma.data.firestore.repository.UserRepository
 import com.example.run_app_rma.data.remote.AuthRepository
-import com.example.run_app_rma.presentation.feed.FeedScreen
+import com.example.run_app_rma.presentation.feed.FeedScreen // Import FeedScreen
+import com.example.run_app_rma.presentation.feed.FeedViewModel // Import FeedViewModel
 import com.example.run_app_rma.presentation.follow.FollowScreen
 import com.example.run_app_rma.presentation.follow.FollowViewModel
 import com.example.run_app_rma.presentation.profile.ProfileScreen
@@ -45,7 +46,7 @@ enum class TabScreen(val title: String, val icon: ImageVector) {
     FEED("Feed", Icons.Default.DynamicFeed),
     FOLLOW("Prati", Icons.Default.People),
     RUNNING("Trčanje", Icons.AutoMirrored.Filled.DirectionsRun),
-    PUBLISH("Objavi", Icons.Default.UploadFile), // New tab for publishing runs
+    PUBLISH("Objavi", Icons.Default.UploadFile), // Ensure this is still present
     PROFILE("Profil", Icons.Default.AccountCircle)
 }
 
@@ -59,11 +60,10 @@ fun MainScreenWithTabs(
     authRepository: AuthRepository,
     onLogout: () -> Unit,
     onEditProfile: (String) -> Unit,
-    // Pass RunPostRepository and AppDatabase instance
-    runPostRepository: RunPostRepository,
-    appDatabase: com.example.run_app_rma.data.db.AppDatabase // Fully qualify AppDatabase
+    runPostRepository: RunPostRepository, // Passed from MainActivity
+    appDatabase: com.example.run_app_rma.data.db.AppDatabase // Passed from MainActivity
 ) {
-    val pagerState = rememberPagerState(initialPage = TabScreen.RUNNING.ordinal) {
+    val pagerState = rememberPagerState(initialPage = TabScreen.FEED.ordinal) { // Set initial page to Feed
         TabScreen.values().size
     }
     val scope = rememberCoroutineScope()
@@ -84,20 +84,30 @@ fun MainScreenWithTabs(
         )
     )
 
-    // Initialize PublishRunViewModel
     val publishRunViewModel: PublishRunViewModel = viewModel(
         factory = PublishRunViewModel.Factory(
-            runDao = appDatabase.runDao(), // Pass the runDao from AppDatabase
-            runPostRepository = runPostRepository, // Pass the RunPostRepository
-            userRepository = userRepository, // Pass UserRepository
-            firebaseAuth = firebaseAuth // Pass FirebaseAuth
+            runDao = appDatabase.runDao(),
+            runPostRepository = runPostRepository,
+            userRepository = userRepository,
+            firebaseAuth = firebaseAuth
         )
     )
 
+    // Initialize FeedViewModel
+    val feedViewModel: FeedViewModel = viewModel(
+        factory = FeedViewModel.Factory(
+            runPostRepository = runPostRepository,
+            userRepository = userRepository,
+            firebaseAuth = firebaseAuth
+        )
+    )
+
+    // Observe changes in the selected tab and refresh data accordingly
     LaunchedEffect(pagerState.currentPage) {
         when (TabScreen.values()[pagerState.currentPage]) {
+            TabScreen.FEED -> feedViewModel.loadFeedPosts() // Load posts when Feed tab is selected
             TabScreen.PROFILE -> profileViewModel.fetchUserProfile()
-            TabScreen.PUBLISH -> publishRunViewModel.loadLocalRuns() // Load runs when Publish tab is selected
+            TabScreen.PUBLISH -> publishRunViewModel.loadLocalRuns()
             else -> { /* Do nothing for other tabs */ }
         }
     }
@@ -127,10 +137,10 @@ fun MainScreenWithTabs(
             modifier = modifier.padding(innerPadding)
         ) { page ->
             when (TabScreen.values()[page]) {
-                TabScreen.FEED -> FeedScreen()
-                TabScreen.FOLLOW -> FollowScreen(followViewModel = followViewModel)
+                TabScreen.FEED -> FeedScreen(feedViewModel = feedViewModel) // Pass feedViewModel to FeedScreen
                 TabScreen.RUNNING -> RunningScreen(runViewModel = runViewModel)
-                TabScreen.PUBLISH -> PublishRunScreen(publishRunViewModel = publishRunViewModel) // New tab screen
+                TabScreen.FOLLOW -> FollowScreen(followViewModel = followViewModel)
+                TabScreen.PUBLISH -> PublishRunScreen(publishRunViewModel = publishRunViewModel)
                 TabScreen.PROFILE -> ProfileScreen(
                     profileViewModel = profileViewModel,
                     onLogout = onLogout,
