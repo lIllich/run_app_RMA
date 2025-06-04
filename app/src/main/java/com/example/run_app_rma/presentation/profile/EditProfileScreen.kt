@@ -93,11 +93,16 @@ fun EditProfileScreen(
         }
     }
 
-    // Launcher for picking media from gallery
     val pickMediaLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
         onResult = { uri ->
-            selectedImageUri = uri
+            if (uri != null) {
+                selectedImageUri = uri
+            } else {
+                // No image selected or URI is null (e.g., user cancelled)
+                Toast.makeText(context, "Nema odabrane slike.", Toast.LENGTH_SHORT).show()
+                selectedImageUri = null // Ensure it's cleared if no image is picked
+            }
         }
     )
 
@@ -108,7 +113,10 @@ fun EditProfileScreen(
             if (success) {
                 selectedImageUri = tempCameraUri // If picture taken successfully, use the temporary URI
             } else {
+                // Camera capture failed or user cancelled
+                Toast.makeText(context, "Snimanje slike neuspješno.", Toast.LENGTH_SHORT).show()
                 tempCameraUri = null // Clear temp URI if failed
+                selectedImageUri = null // Also clear selectedImageUri if using tempCameraUri directly
             }
         }
     )

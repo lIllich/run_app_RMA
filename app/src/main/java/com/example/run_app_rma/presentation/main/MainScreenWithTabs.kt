@@ -6,10 +6,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.DirectionsRun
 import androidx.compose.material.icons.filled.DynamicFeed
 import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.UploadFile // New icon for "Objavi"
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -17,28 +19,34 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect // IMPORT LaunchedEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.run_app_rma.data.firestore.repository.FollowRepository
+import com.example.run_app_rma.data.firestore.repository.RunPostRepository // Import RunPostRepository
 import com.example.run_app_rma.data.firestore.repository.UserRepository
 import com.example.run_app_rma.data.remote.AuthRepository
 import com.example.run_app_rma.presentation.feed.FeedScreen
 import com.example.run_app_rma.presentation.follow.FollowScreen
+import com.example.run_app_rma.presentation.follow.FollowViewModel
 import com.example.run_app_rma.presentation.profile.ProfileScreen
 import com.example.run_app_rma.presentation.profile.ProfileViewModel
-import com.example.run_app_rma.presentation.track.RunningScreen // IMPORT RunningScreen
+import com.example.run_app_rma.presentation.publish.PublishRunScreen // Import PublishRunScreen
+import com.example.run_app_rma.presentation.publish.PublishRunViewModel // Import PublishRunViewModel
+import com.example.run_app_rma.presentation.track.RunningScreen
 import com.example.run_app_rma.presentation.track.RunViewModel
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore // Import FirebaseFirestore for ProfileViewModel Factory
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 
 enum class TabScreen(val title: String, val icon: ImageVector) {
     FEED("Feed", Icons.Default.DynamicFeed),
-    RUNNING("Trčanje", Icons.Default.DirectionsRun), // Changed to "Trčanje" for consistency
-    FOLLOW("Prati", Icons.Default.People), // Changed to "Prati" for consistency
-    PROFILE("Profil", Icons.Default.AccountCircle) // Changed to "Profil" for consistency
+    FOLLOW("Prati", Icons.Default.People),
+    RUNNING("Trčanje", Icons.AutoMirrored.Filled.DirectionsRun),
+    PUBLISH("Objavi", Icons.Default.UploadFile), // New tab for publishing runs
+    PROFILE("Profil", Icons.Default.AccountCircle)
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -48,12 +56,13 @@ fun MainScreenWithTabs(
     runViewModel: RunViewModel,
     userRepository: UserRepository,
     firebaseAuth: FirebaseAuth,
-    authRepository: AuthRepository, // This is the AuthRepository instance from MainActivity
+    authRepository: AuthRepository,
     onLogout: () -> Unit,
-    onEditProfile: (String) -> Unit
+    onEditProfile: (String) -> Unit,
+    // Pass RunPostRepository and AppDatabase instance
+    runPostRepository: RunPostRepository,
+    appDatabase: com.example.run_app_rma.data.db.AppDatabase // Fully qualify AppDatabase
 ) {
-    // Start on Profile tab as initial page if that's desired behavior.
-    // Given the previous code, it started on "RUNNING.ordinal", so keeping that for now.
     val pagerState = rememberPagerState(initialPage = TabScreen.RUNNING.ordinal) {
         TabScreen.values().size
     }
@@ -63,14 +72,33 @@ fun MainScreenWithTabs(
         factory = ProfileViewModel.Factory(
             userRepository = userRepository,
             firebaseAuth = firebaseAuth,
-            authRepository = authRepository // Pass the correct AuthRepository instance
+            authRepository = authRepository
         )
     )
 
-    // Observe changes in the selected tab and refresh profile data when the Profile tab is selected
+    val followViewModel: FollowViewModel = viewModel(
+        factory = FollowViewModel.Factory(
+            userRepository = userRepository,
+            followRepository = FollowRepository(FirebaseFirestore.getInstance()),
+            firebaseAuth = firebaseAuth
+        )
+    )
+
+    // Initialize PublishRunViewModel
+    val publishRunViewModel: PublishRunViewModel = viewModel(
+        factory = PublishRunViewModel.Factory(
+            runDao = appDatabase.runDao(), // Pass the runDao from AppDatabase
+            runPostRepository = runPostRepository, // Pass the RunPostRepository
+            userRepository = userRepository, // Pass UserRepository
+            firebaseAuth = firebaseAuth // Pass FirebaseAuth
+        )
+    )
+
     LaunchedEffect(pagerState.currentPage) {
-        if (TabScreen.values()[pagerState.currentPage] == TabScreen.PROFILE) {
-            profileViewModel.fetchUserProfile()
+        when (TabScreen.values()[pagerState.currentPage]) {
+            TabScreen.PROFILE -> profileViewModel.fetchUserProfile()
+            TabScreen.PUBLISH -> publishRunViewModel.loadLocalRuns() // Load runs when Publish tab is selected
+            else -> { /* Do nothing for other tabs */ }
         }
     }
 
@@ -100,8 +128,9 @@ fun MainScreenWithTabs(
         ) { page ->
             when (TabScreen.values()[page]) {
                 TabScreen.FEED -> FeedScreen()
-                TabScreen.RUNNING -> RunningScreen(runViewModel = runViewModel) // Corrected: RunningScreen
-                TabScreen.FOLLOW -> FollowScreen()
+                TabScreen.FOLLOW -> FollowScreen(followViewModel = followViewModel)
+                TabScreen.RUNNING -> RunningScreen(runViewModel = runViewModel)
+                TabScreen.PUBLISH -> PublishRunScreen(publishRunViewModel = publishRunViewModel) // New tab screen
                 TabScreen.PROFILE -> ProfileScreen(
                     profileViewModel = profileViewModel,
                     onLogout = onLogout,

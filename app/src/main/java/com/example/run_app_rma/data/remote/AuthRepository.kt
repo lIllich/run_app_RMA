@@ -53,6 +53,7 @@ class AuthRepository(private val context: Context) {
                     displayName = displayName,
                     email = it.email ?: email,
                     age = age,
+                    lowercaseDisplayName = displayName.lowercase(),
                     profileImageUrl = null
                 )
                 usersCollection.document(it.uid).set(newUser).await()

@@ -27,10 +27,12 @@ import com.example.run_app_rma.presentation.login.LoginScreen
 import com.example.run_app_rma.presentation.track.RunViewModel
 import com.example.run_app_rma.presentation.main.MainScreenWithTabs
 import com.example.run_app_rma.data.firestore.repository.UserRepository
+import com.example.run_app_rma.data.firestore.repository.RunPostRepository // Import RunPostRepository
 import com.example.run_app_rma.presentation.profile.EditProfileScreen
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
+
 
 
 class MainActivity : ComponentActivity() {
@@ -40,6 +42,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var appDatabase: AppDatabase
     private lateinit var authRepository: AuthRepository
     private lateinit var userRepository: UserRepository
+    private lateinit var runPostRepository: RunPostRepository // Declare RunPostRepository
     private lateinit var firebaseAuth: FirebaseAuth
     private lateinit var firebaseStorage: FirebaseStorage
 
@@ -73,11 +76,14 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
+
+
         locationService = LocationService(this)
         sensorService = SensorService(this)
         appDatabase = AppDatabase.getInstance(applicationContext)
-        authRepository = AuthRepository(applicationContext) // CORRECTED: Pass applicationContext
+        authRepository = AuthRepository(applicationContext)
         userRepository = UserRepository(FirebaseFirestore.getInstance())
+        runPostRepository = RunPostRepository(FirebaseFirestore.getInstance()) // Initialize RunPostRepository
         firebaseAuth = FirebaseAuth.getInstance()
         firebaseStorage = FirebaseStorage.getInstance()
 
@@ -116,23 +122,19 @@ class MainActivity : ComponentActivity() {
                 )
 
                 // Determine start destination based on current login status
-                val isLoggedIn by remember { mutableStateOf(authRepository.isLoggedIn()) } // Observing authRepository.isLoggedIn()
+                val isLoggedIn by remember { mutableStateOf(authRepository.isLoggedIn()) }
 
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     NavHost(
                         navController = navController,
-                        startDestination = if (isLoggedIn) "main" else "login", // Use isLoggedIn state
+                        startDestination = if (isLoggedIn) "main" else "login",
                         modifier = Modifier.padding(innerPadding)
                     ) {
                         composable("login") {
                             LoginScreen(authRepository = authRepository) {
-                                // On successful login, navigate to main and update isLoggedIn state
                                 navController.navigate("main") {
                                     popUpTo("login") { inclusive = true }
                                 }
-                                // No explicit isLoggedIn = true needed here as NavHost observes it.
-                                // If you want immediate UI update for isLoggedIn, it needs to be MutableStateOf
-                                // and updated here. However, `authRepository.isLoggedIn()` directly reflects state.
                             }
                         }
                         composable("main") {
@@ -141,16 +143,18 @@ class MainActivity : ComponentActivity() {
                                 runViewModel = runViewModel,
                                 userRepository = userRepository,
                                 firebaseAuth = firebaseAuth,
-                                authRepository = authRepository, // Correctly pass the instance
+                                authRepository = authRepository,
                                 onLogout = {
-                                    authRepository.logout() // Call logout on the repository
+                                    authRepository.logout()
                                     navController.navigate("login") {
                                         popUpTo("main") { inclusive = true }
                                     }
                                 },
                                 onEditProfile = { userId ->
                                     navController.navigate("edit_profile/$userId")
-                                }
+                                },
+                                runPostRepository = runPostRepository, // Pass RunPostRepository
+                                appDatabase = appDatabase // Pass AppDatabase instance
                             )
                         }
                         composable("edit_profile/{userId}") { backStackEntry ->
@@ -159,9 +163,6 @@ class MainActivity : ComponentActivity() {
                                 EditProfileScreen(
                                     userId = userId,
                                     onProfileUpdated = {
-                                        // When profile is updated, navigate back.
-                                        // MainScreenWithTabs will handle refreshing the profile data
-                                        // when it becomes visible again.
                                         navController.popBackStack()
                                     },
                                     onBack = { navController.popBackStack() }

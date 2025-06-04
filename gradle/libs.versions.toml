@@ -2,12 +2,15 @@
 activityCompose = "1.10.1"
 activityKtx = "1.10.1"
 agp = "8.9.3"
+coilCompose = "2.2.2"
 composeBom = "2025.05.01"
 coreKtx = "1.16.0"
 espressoCore = "3.6.1"
 firebaseAuthKtx = "23.2.1"
 firebaseBom = "33.14.0"
+firebaseBomVersion = "33.0.0"
 firebaseFirestoreKtx = "25.1.4"
+gson = "2.10.1"
 junit = "4.13.2"
 junitVersion = "1.2.1"
 kotlin = "2.0.21"
@@ -41,10 +44,14 @@ androidx-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit
 androidx-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
 androidx-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
 androidx-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
+coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coilCompose" }
 firebase-analytics = { module = "com.google.firebase:firebase-analytics" }
 firebase-auth-ktx = { module = "com.google.firebase:firebase-auth-ktx", version.ref = "firebaseAuthKtx" }
 firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebaseBom" }
+firebase-bom-v3300 = { module = "com.google.firebase:firebase-bom", version.ref = "firebaseBomVersion" }
 firebase-firestore-ktx = { module = "com.google.firebase:firebase-firestore-ktx", version.ref = "firebaseFirestoreKtx" }
+google-firebase-firestore-ktx = { module = "com.google.firebase:firebase-firestore-ktx" }
+gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 play-services-location = { module = "com.google.android.gms:play-services-location", version.ref = "playServicesLocation" }
 room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }

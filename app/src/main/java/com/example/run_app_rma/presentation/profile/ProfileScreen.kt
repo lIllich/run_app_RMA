@@ -116,10 +116,5 @@ fun UserProfileContent(user: User) {
         // Text(text = "Zadnje trčanje: ${dateFormat.format(Date(timestamp))}")
         Text(text = "Zadnje trčanje (timestamp): $timestamp") // For now, just display raw timestamp
     }
-    // Display createdAt if available
-    user.createdAt?.let { timestamp ->
-        // val dateFormat = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
-        // Text(text = "Kreirano: ${dateFormat.format(Date(timestamp))}")
-        Text(text = "Kreirano (timestamp): $timestamp") // For now, just display raw timestamp
-    }
+
 }

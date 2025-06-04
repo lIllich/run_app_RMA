@@ -83,5 +83,7 @@ dependencies {
     implementation(libs.androidx.foundation.layout) // Za HorizontalPager
     implementation(libs.ui.tooling.preview) // Za Preview
     implementation(libs.androidx.lifecycle.viewmodel.compose.v270) // Provjeri najnoviju verziju ako je potrebno
-    implementation("io.coil-kt:coil-compose:2.2.2") // Za učitavanje slika s URL-a (profilna slika)
+    implementation(libs.coil.compose) // Za učitavanje slika s URL-a (profilna slika)
+
+    implementation(libs.gson)
 }

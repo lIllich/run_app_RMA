@@ -39,24 +39,21 @@ class EditProfileViewModel(
     }
 
     fun fetchCurrentUserProfile() {
+        _errorMessage.value = null
+        val userId = firebaseAuth.currentUser?.uid
+        if (userId == null) {
+            _errorMessage.value = "User not logged in."
+            return
+        }
+
         _isLoading.value = true
         viewModelScope.launch {
-            try {
-                val userId = firebaseAuth.currentUser?.uid
-                if (userId != null) {
-                    val result = userRepository.getUserProfile(userId)
-                    if (result.isSuccess) {
-                        _currentUser.value = result.getOrNull()
-                    } else {
-                        _errorMessage.value = result.exceptionOrNull()?.message ?: "Failed to load profile."
-                    }
-                } else {
-                    _errorMessage.value = "User not logged in."
-                }
-            } catch (e: Exception) {
-                _errorMessage.value = e.message ?: "An error occurred while fetching profile."
-            } finally {
-                _isLoading.value = false
+            val result = userRepository.getUserProfile(userId)
+            _isLoading.value = false
+            if (result.isSuccess) {
+                _currentUser.value = result.getOrNull()
+            } else {
+                _errorMessage.value = result.exceptionOrNull()?.message ?: "Failed to load profile."
             }
         }
     }
@@ -68,57 +65,49 @@ class EditProfileViewModel(
         profileImageUri: Uri?
     ) {
         _isLoading.value = true
+        _errorMessage.value = null
+        _successMessage.value = null
+
         viewModelScope.launch {
             try {
+                val currentUserId = firebaseAuth.currentUser?.uid
+                if (currentUserId == null || currentUserId != userId) {
+                    _errorMessage.value = "Authentication error or unauthorized action."
+                    return@launch
+                }
+
                 var imageUrl: String? = currentUser.value?.profileImageUrl
 
+                // Handle image upload if a new URI is provided
                 if (profileImageUri != null) {
-                    val user = firebaseAuth.currentUser
-                    if (user != null) {
-                        val imageRef = firebaseStorage.reference
-                            .child("profile_images/${user.uid}/${UUID.randomUUID()}.jpg")
-
-                        val uploadTask = imageRef.putFile(profileImageUri).await()
-                        imageUrl = uploadTask.storage.downloadUrl.await().toString()
+                    val uploadResult = uploadProfileImage(userId, profileImageUri)
+                    if (uploadResult.isSuccess) {
+                        imageUrl = uploadResult.getOrNull() // Get the download URL
                     } else {
-                        _errorMessage.value = "User not authenticated for image upload."
+                        _errorMessage.value = uploadResult.exceptionOrNull()?.message ?: "Failed to upload image."
                         _isLoading.value = false
                         return@launch
                     }
-                } else if (currentUser.value?.profileImageUrl != null && (profileImageUri == null && imageUrl?.isEmpty() != false)) {
-                    // If URI is null and current profile has an image, and it's not explicitly keeping it, set to empty.
-                    // This handles cases where user wants to remove the image.
-                    imageUrl = ""
                 }
 
-
-                val updatedUserMap = mutableMapOf<String, Any>()
-                val currentDisplayName = _currentUser.value?.displayName
-                val currentAge = _currentUser.value?.age
-                val currentProfileImageUrl = _currentUser.value?.profileImageUrl
-
-                var hasChanges = false
-
-                if (displayName != currentDisplayName) {
-                    updatedUserMap["displayName"] = displayName
-                    hasChanges = true
+                val updates = mutableMapOf<String, Any?>()
+                if (displayName != currentUser.value?.displayName) {
+                    updates["displayName"] = displayName
+                    updates["lowercaseDisplayName"] = displayName.lowercase() // Add this line
                 }
-                if (age != currentAge) {
-                    updatedUserMap["age"] = age ?: 0
-                    hasChanges = true
+                if (age != currentUser.value?.age) {
+                    updates["age"] = age
                 }
-                // Check if imageUrl has changed, including setting to null/empty
-                if (imageUrl != currentProfileImageUrl) {
-                    updatedUserMap["profileImageUrl"] = imageUrl ?: ""
-                    hasChanges = true
+                if (imageUrl != currentUser.value?.profileImageUrl) {
+                    updates["profileImageUrl"] = imageUrl
                 }
 
-                if (hasChanges) {
-                    val result = userRepository.updateUserProfile(userId, updatedUserMap)
+                if (updates.isNotEmpty()) {
+                    val result = userRepository.updateUserProfile(userId, updates)
 
                     if (result.isSuccess) {
                         _successMessage.value = "Profil uspješno ažuriran!"
-                        fetchCurrentUserProfile() // Fetch updated profile to reflect changes immediately
+                        fetchCurrentUserProfile()
                     } else {
                         _errorMessage.value = result.exceptionOrNull()?.message ?: "Ažuriranje profila neuspješno."
                     }
@@ -130,6 +119,18 @@ class EditProfileViewModel(
             } finally {
                 _isLoading.value = false
             }
+        }
+    }
+
+    private suspend fun uploadProfileImage(userId: String, uri: Uri): Result<String> {
+        return try {
+            val storageRef = firebaseStorage.reference
+            val imageRef = storageRef.child("profile_images/$userId/${UUID.randomUUID()}.jpg") // Ensure this path matches your rules
+            val uploadTask = imageRef.putFile(uri).await()
+            val downloadUrl = uploadTask.storage.downloadUrl.await().toString()
+            Result.success(downloadUrl)
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 

@@ -32,7 +32,6 @@ class UserRepository(private val firestore: FirebaseFirestore = FirebaseFirestor
         }
     }
 
-    // ISPRAVKA OVDJE: Promijeni tip 'updates' na Map<String, Any?>
     suspend fun updateUserProfile(userId: String, updates: Map<String, Any?>): Result<Unit> {
         return try {
             usersCollection.document(userId).update(updates).await()
@@ -44,10 +43,11 @@ class UserRepository(private val firestore: FirebaseFirestore = FirebaseFirestor
 
     suspend fun searchUsers(query: String): Result<List<User>> {
         return try {
+            val lowerCaseQuery = query.toLowerCase() // Convert query to lowercase
             val users = usersCollection
-                .orderBy("displayName")
-                .startAt(query)
-                .endAt(query + '\uf8ff')
+                .orderBy("lowercaseDisplayName") // Order and search by the new lowercase field
+                .startAt(lowerCaseQuery) //
+                .endAt(lowerCaseQuery + '\uf8ff') //
                 .get()
                 .await()
                 .toObjects(User::class.java)

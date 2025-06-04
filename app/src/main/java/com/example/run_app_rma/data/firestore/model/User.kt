@@ -5,13 +5,14 @@ import com.google.firebase.firestore.ServerTimestamp
 import java.util.Date
 
 data class User(
-    @DocumentId val id: String = "",    // firebase auth user id
+    @DocumentId val id: String = "",
     val displayName: String = "",
+    val lowercaseDisplayName: String = "", // Add this new field
     val email: String = "",
     val profileImageUrl: String? = null,
-    val totalDistanceRun: Float = 0f,   // m
+    val totalDistanceRun: Float = 0f,
     val totalRuns: Int = 0,
-    val age: Int? = null, // Dodano polje za dob (nullable)
+    val age: Int? = null,
     val lastRunTimestamp: Long? = null,
-    @ServerTimestamp val createdAt: Date? = null    // firestore timestamp
+    @ServerTimestamp val createdAt: Date? = null
 )
