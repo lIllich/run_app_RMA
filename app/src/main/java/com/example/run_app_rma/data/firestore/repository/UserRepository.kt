@@ -43,7 +43,7 @@ class UserRepository(private val firestore: FirebaseFirestore = FirebaseFirestor
 
     suspend fun searchUsers(query: String): Result<List<User>> {
         return try {
-            val lowerCaseQuery = query.toLowerCase() // Convert query to lowercase
+            val lowerCaseQuery = query.lowercase() // Convert query to lowercase
             val users = usersCollection
                 .orderBy("lowercaseDisplayName") // Order and search by the new lowercase field
                 .startAt(lowerCaseQuery) //

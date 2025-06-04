@@ -13,10 +13,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.DirectionsRun
+import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.DirectionsRun
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -106,17 +109,17 @@ fun RunPostCard(
                 horizontalArrangement = Arrangement.SpaceAround
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Default.DirectionsRun, contentDescription = "Distance")
+                    Icon(Icons.AutoMirrored.Filled.DirectionsRun, contentDescription = "Distance")
                     Text("${decimalFormat.format(post.distance / 1000)} km", style = MaterialTheme.typography.bodyLarge)
                     Text("Udaljenost", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Default.LocationOn, contentDescription = "Pace")
+                    Icon(Icons.Default.Speed, contentDescription = "Pace")
                     Text("${decimalFormat.format(post.avgPace)} min/km", style = MaterialTheme.typography.bodyLarge)
                     Text("Tempo", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Default.Favorite, contentDescription = "Duration") // Reusing Favorite icon for duration placeholder
+                    Icon(Icons.Default.AccessTime, contentDescription = "Duration") // Reusing Favorite icon for duration placeholder
                     val durationMillis = post.endTime - post.startTime
                     val minutes = (durationMillis / (1000 * 60)) % 60
                     val hours = (durationMillis / (1000 * 60 * 60))

@@ -10,7 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.DirectionsRun // Import DirectionsRun icon
+import androidx.compose.material.icons.filled.DirectionsRun
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -25,9 +25,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
-import com.example.run_app_rma.R // Assuming you have a default profile placeholder
+import com.example.run_app_rma.R
 import com.example.run_app_rma.data.firestore.model.RunPost
 import com.example.run_app_rma.data.firestore.model.User
+import com.example.run_app_rma.presentation.common.RunPostCard // Import RunPostCard
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -39,11 +40,13 @@ fun FeedScreen(
     feedViewModel: FeedViewModel = viewModel() // ViewModel will be provided by MainScreenWithTabs
 ) {
     // CORRECTED: Directly access mutableStateListOf properties. No .collectAsState() needed here.
+    // These are already observable by Compose.
     val newPosts = feedViewModel.newPosts
     val olderPosts = feedViewModel.olderPosts
     val isLoading by feedViewModel.isLoading.collectAsState()
     val errorMessage by feedViewModel.errorMessage.collectAsState()
-    val userProfiles by feedViewModel.userProfiles // Directly observe the State<Map>
+    val userProfiles by feedViewModel.userProfiles // userProfiles is a State<Map>, so direct access to its value
+    val userLikedPostIds by feedViewModel.userLikedPostIds.collectAsState() // userLikedPostIds is a StateFlow, so collectAsState is correct
 
     val dateFormat = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
     val decimalFormat = DecimalFormat("#.##")
@@ -54,8 +57,6 @@ fun FeedScreen(
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-
-
         if (isLoading) {
             CircularProgressIndicator(modifier = Modifier.padding(16.dp))
         }
@@ -63,188 +64,59 @@ fun FeedScreen(
         errorMessage?.let { message ->
             Text(
                 text = message,
-                color = MaterialTheme.colorScheme.error,
+                color = MaterialTheme.colorScheme.error, // Correct usage
                 modifier = Modifier.padding(8.dp)
             )
         }
 
-        // CORRECTED: Use .size == 0 for isEmpty() check
-        if (newPosts.size == 0 && olderPosts.size == 0 && !isLoading) {
+        // Check if both lists are empty
+        if (newPosts.isEmpty() && olderPosts.isEmpty() && !isLoading) {
             Text("Nema objava za prikaz.")
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // CORRECTED: Use .isNotEmpty() for Collection
                 if (newPosts.isNotEmpty()) {
                     item {
                         Text(
                             text = "Nove objave",
-                            style = MaterialTheme.typography.titleLarge,
+                            style = MaterialTheme.typography.titleLarge, // Correct usage
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(vertical = 8.dp)
                         )
                     }
-                    items(newPosts, key = { it.id }) { post ->
-                        FeedPostCard(
+                    items(newPosts, key = { it.id }) { post -> // Explicitly define type for 'post'
+                        RunPostCard(
                             post = post,
-                            user = userProfiles[post.userId], // Pass the user profile
+                            user = userProfiles[post.userId], // Access value of State<Map>
                             dateFormat = dateFormat,
                             decimalFormat = decimalFormat,
-                            onLikeClick = { postId, isLiked -> feedViewModel.toggleLike(postId, isLiked) }
-                            // Add onCommentClick if you implement comments later
+                            onLikeClick = { postId, isLiked -> feedViewModel.toggleLike(postId, isLiked) },
+                            isLiked = userLikedPostIds.contains(post.id)
                         )
                     }
                 }
 
-                // CORRECTED: Use .isNotEmpty() for Collection
                 if (olderPosts.isNotEmpty()) {
                     item {
                         Text(
                             text = "Starije objave",
-                            style = MaterialTheme.typography.titleLarge,
+                            style = MaterialTheme.typography.titleLarge, // Correct usage
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(vertical = 8.dp)
                         )
                     }
-                    items(olderPosts, key = { it.id }) { post ->
-                        FeedPostCard(
+                    items(olderPosts, key = { it.id }) { post -> // Explicitly define type for 'post'
+                        RunPostCard(
                             post = post,
-                            user = userProfiles[post.userId],
+                            user = userProfiles[post.userId], // Access value of State<Map>
                             dateFormat = dateFormat,
                             decimalFormat = decimalFormat,
-                            onLikeClick = { postId, isLiked -> feedViewModel.toggleLike(postId, isLiked) }
+                            onLikeClick = { postId, isLiked -> feedViewModel.toggleLike(postId, isLiked) },
+                            isLiked = userLikedPostIds.contains(post.id)
                         )
                     }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun FeedPostCard(
-    post: RunPost,
-    user: User?, // User profile for the post creator
-    dateFormat: SimpleDateFormat,
-    decimalFormat: DecimalFormat,
-    onLikeClick: (String, Boolean) -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            // User Header (Profile Picture, Display Name)
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Image(
-                    painter = if (user?.profileImageUrl != null && user.profileImageUrl.isNotEmpty()) {
-                        rememberAsyncImagePainter(user.profileImageUrl)
-                    } else {
-                        painterResource(R.drawable.ic_profile_placeholder) // Default placeholder
-                    },
-                    contentDescription = "Profile Picture",
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape),
-                    contentScale = ContentScale.Crop
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = user?.displayName ?: "Nepoznat korisnik",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.weight(1f))
-                Text(
-                    text = post.timestamp?.let { dateFormat.format(it) } ?: "N/A",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.Gray
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Run Details
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceAround
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Default.DirectionsRun, contentDescription = "Distance") // DirectionsRun is now imported
-                    Text("${decimalFormat.format(post.distance / 1000)} km", style = MaterialTheme.typography.bodyLarge)
-                    Text("Udaljenost", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
-                }
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Default.LocationOn, contentDescription = "Pace")
-                    Text("${decimalFormat.format(post.avgPace)} min/km", style = MaterialTheme.typography.bodyLarge)
-                    Text("Tempo", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
-                }
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Default.Favorite, contentDescription = "Duration") // Placeholder icon
-                    val durationMillis = post.endTime - post.startTime
-                    val minutes = (durationMillis / (1000 * 60)) % 60
-                    val hours = (durationMillis / (1000 * 60 * 60))
-                    Text(
-                        text = String.format("%02d:%02d", hours, minutes),
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                    Text("Trajanje", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Caption
-            if (post.caption.isNotEmpty()) {
-                Text(
-                    text = post.caption,
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-            }
-
-            // Like and Comment Actions
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Like Button
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.clickable { onLikeClick(post.id, post.likesCount > 0) } // Simplified isLiked check for now
-                ) {
-                    val isLiked = post.likesCount > 0 // Placeholder, will need actual check
-                    Icon(
-                        imageVector = if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                        contentDescription = "Like",
-                        tint = if (isLiked) Color.Red else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("${post.likesCount}", style = MaterialTheme.typography.bodyMedium)
-                }
-
-                // Comment Button (Placeholder)
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.clickable { /* TODO: Implement comment functionality */ }
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.LocationOn, // Placeholder icon for comments
-                        contentDescription = "Comment",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("${post.commentsCount}", style = MaterialTheme.typography.bodyMedium)
                 }
             }
         }

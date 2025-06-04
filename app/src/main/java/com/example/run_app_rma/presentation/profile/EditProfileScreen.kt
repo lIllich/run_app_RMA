@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Image // Import for gallery icon
@@ -127,7 +128,7 @@ fun EditProfileScreen(
                 title = { Text("Uredi profil") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Natrag")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Natrag")
                     }
                 }
             )
