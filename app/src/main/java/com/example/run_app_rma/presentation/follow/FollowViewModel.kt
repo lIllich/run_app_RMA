@@ -34,13 +34,19 @@ class FollowViewModel(
     private val _isFollowingMap = mutableStateMapOf<String, Boolean>()
     val isFollowingMap: Map<String, Boolean> = _isFollowingMap
 
+    // Main loading state, primarily for search operations
     private val _isLoading = mutableStateOf(false)
     val isLoading: State<Boolean> = _isLoading
+
+    // New: Loading state for individual follow/unfollow actions
+    private val _isTogglingFollowMap = mutableStateMapOf<String, Boolean>()
+    val isTogglingFollowMap: Map<String, Boolean> = _isTogglingFollowMap
+
 
     private val _errorMessage = mutableStateOf<String?>(null)
     val errorMessage: State<String?> = _errorMessage
 
-    private val currentUserId: String?
+    val currentUserId: String?
         get() = firebaseAuth.currentUser?.uid
 
     init {
@@ -86,7 +92,7 @@ class FollowViewModel(
 
     private fun searchUsers(query: String) {
         viewModelScope.launch {
-            _isLoading.value = true
+            _isLoading.value = true // Set main loading for search
             _errorMessage.value = null
             val result = userRepository.searchUsers(query)
             result.onSuccess { fetchedUsers ->
@@ -98,7 +104,7 @@ class FollowViewModel(
             }.onFailure { e ->
                 _errorMessage.value = "Error searching users: ${e.message}"
             }
-            _isLoading.value = false
+            _isLoading.value = false // Reset main loading after search
         }
     }
 
@@ -126,7 +132,7 @@ class FollowViewModel(
         }
 
         viewModelScope.launch {
-            _isLoading.value = true
+            _isTogglingFollowMap[targetUserId] = true // Set loading for this specific user
             _errorMessage.value = null
             val isCurrentlyFollowing = _isFollowingMap[targetUserId] ?: false
 
@@ -145,7 +151,7 @@ class FollowViewModel(
                     _errorMessage.value = "Failed to follow user: ${e.message}"
                 }
             }
-            _isLoading.value = false
+            _isTogglingFollowMap[targetUserId] = false // Reset loading for this specific user
         }
     }
 

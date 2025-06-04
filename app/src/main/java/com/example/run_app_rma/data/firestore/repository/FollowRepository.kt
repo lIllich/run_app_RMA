@@ -87,4 +87,36 @@ class FollowRepository(private val firestore: FirebaseFirestore = FirebaseFirest
             Result.failure(e)
         }
     }
+
+    /**
+     * Get the number of users a given user is following.
+     */
+    suspend fun getFollowingCount(userId: String): Result<Int> {
+        return try {
+            val count = followsCollection
+                .whereEqualTo("followerId", userId)
+                .get()
+                .await()
+                .size()
+            Result.success(count)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Get the number of followers for a given user.
+     */
+    suspend fun getFollowersCount(userId: String): Result<Int> {
+        return try {
+            val count = followsCollection
+                .whereEqualTo("followingId", userId)
+                .get()
+                .await()
+                .size()
+            Result.success(count)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }

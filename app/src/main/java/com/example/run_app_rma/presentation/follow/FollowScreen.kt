@@ -24,7 +24,7 @@ import com.example.run_app_rma.data.firestore.repository.FollowRepository
 import com.example.run_app_rma.data.firestore.repository.UserRepository
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-
+import com.example.run_app_rma.presentation.common.UserCard // Import the reusable UserCard
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -36,13 +36,16 @@ fun FollowScreen(
             followRepository = FollowRepository(FirebaseFirestore.getInstance()),
             firebaseAuth = FirebaseAuth.getInstance()
         )
-    )
+    ),
+    onUserClick: (String) -> Unit // New parameter: Lambda to navigate to another user's profile
 ) {
     val searchQuery by followViewModel.searchQuery.collectAsState()
     val users = followViewModel.users
-    val isLoading by followViewModel.isLoading
+    val isLoading by followViewModel.isLoading // This now primarily reflects search loading
     val errorMessage by followViewModel.errorMessage
     val isFollowingMap = followViewModel.isFollowingMap
+    val isTogglingFollowMap = followViewModel.isTogglingFollowMap // New: Observe individual toggle loading
+    val currentLoggedInUserId = followViewModel.currentUserId // Get current user ID from ViewModel
 
     Column(
         modifier = modifier.fillMaxSize(),
@@ -62,6 +65,7 @@ fun FollowScreen(
 
         Spacer(modifier = Modifier.height(8.dp))
 
+        // Show main CircularProgressIndicator only when searching
         if (isLoading) {
             CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
         }
@@ -93,71 +97,18 @@ fun FollowScreen(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             items(users, key = { it.id }) { user ->
+                // Ensure the follow button is not shown for the current user's own card
+                val showFollowBtn = user.id != currentLoggedInUserId
                 UserCard(
                     user = user,
+                    onClick = onUserClick, // Pass the onUserClick lambda here
+                    showFollowButton = showFollowBtn,
                     isFollowing = isFollowingMap[user.id] ?: false,
-                    onToggleFollow = { followViewModel.toggleFollow(user.id) }
+                    onToggleFollow = { userIdToToggle, isCurrentlyFollowing ->
+                        followViewModel.toggleFollow(userIdToToggle)
+                    },
+                    isTogglingFollow = isTogglingFollowMap[user.id] ?: false // Pass individual toggle loading state
                 )
-            }
-        }
-    }
-}
-
-@Composable
-fun UserCard(
-    user: User,
-    isFollowing: Boolean,
-    onToggleFollow: (String) -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .wrapContentHeight(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (user.profileImageUrl != null) {
-                    Image(
-                        painter = rememberAsyncImagePainter(user.profileImageUrl),
-                        contentDescription = "Profile Picture",
-                        modifier = Modifier
-                            .size(50.dp)
-                            .clip(CircleShape),
-                        contentScale = ContentScale.Crop
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = "Default Profile Picture",
-                        modifier = Modifier.size(50.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(12.dp))
-
-                Text(
-                    text = user.displayName,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            }
-
-            Button(
-                onClick = { onToggleFollow(user.id) },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (isFollowing) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary,
-                    contentColor = if (isFollowing) MaterialTheme.colorScheme.onSecondary else MaterialTheme.colorScheme.onPrimary
-                )
-            ) {
-                Text(text = if (isFollowing) "Pratim" else "Zaprati")
             }
         }
     }

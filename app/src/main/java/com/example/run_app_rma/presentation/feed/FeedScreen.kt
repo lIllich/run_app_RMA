@@ -10,7 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.DirectionsRun
+import androidx.compose.material.icons.filled.DirectionsRun // Import DirectionsRun icon
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -25,7 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
-import com.example.run_app_rma.R
+import com.example.run_app_rma.R // Assuming you have a default profile placeholder
 import com.example.run_app_rma.data.firestore.model.RunPost
 import com.example.run_app_rma.data.firestore.model.User
 import com.example.run_app_rma.presentation.common.RunPostCard // Import RunPostCard
@@ -37,16 +37,15 @@ import java.util.Locale
 @Composable
 fun FeedScreen(
     modifier: Modifier = Modifier,
-    feedViewModel: FeedViewModel = viewModel() // ViewModel will be provided by MainScreenWithTabs
+    feedViewModel: FeedViewModel = viewModel(), // ViewModel will be provided by MainScreenWithTabs
+    onUserClick: (String) -> Unit // New parameter: Lambda to navigate to another user's profile
 ) {
-    // CORRECTED: Directly access mutableStateListOf properties. No .collectAsState() needed here.
-    // These are already observable by Compose.
     val newPosts = feedViewModel.newPosts
     val olderPosts = feedViewModel.olderPosts
     val isLoading by feedViewModel.isLoading.collectAsState()
     val errorMessage by feedViewModel.errorMessage.collectAsState()
-    val userProfiles by feedViewModel.userProfiles // userProfiles is a State<Map>, so direct access to its value
-    val userLikedPostIds by feedViewModel.userLikedPostIds.collectAsState() // userLikedPostIds is a StateFlow, so collectAsState is correct
+    val userProfiles by feedViewModel.userProfiles // Directly observe the State<Map>
+    val userLikedPostIds by feedViewModel.userLikedPostIds.collectAsState() // Observe liked post IDs
 
     val dateFormat = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
     val decimalFormat = DecimalFormat("#.##")
@@ -57,6 +56,8 @@ fun FeedScreen(
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+
+
         if (isLoading) {
             CircularProgressIndicator(modifier = Modifier.padding(16.dp))
         }
@@ -64,12 +65,11 @@ fun FeedScreen(
         errorMessage?.let { message ->
             Text(
                 text = message,
-                color = MaterialTheme.colorScheme.error, // Correct usage
+                color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.padding(8.dp)
             )
         }
 
-        // Check if both lists are empty
         if (newPosts.isEmpty() && olderPosts.isEmpty() && !isLoading) {
             Text("Nema objava za prikaz.")
         } else {
@@ -81,19 +81,20 @@ fun FeedScreen(
                     item {
                         Text(
                             text = "Nove objave",
-                            style = MaterialTheme.typography.titleLarge, // Correct usage
+                            style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(vertical = 8.dp)
                         )
                     }
-                    items(newPosts, key = { it.id }) { post -> // Explicitly define type for 'post'
-                        RunPostCard(
+                    items(newPosts, key = { it.id }) { post ->
+                        RunPostCard( // Changed from FeedPostCard to RunPostCard
                             post = post,
-                            user = userProfiles[post.userId], // Access value of State<Map>
+                            user = userProfiles[post.userId],
                             dateFormat = dateFormat,
                             decimalFormat = decimalFormat,
                             onLikeClick = { postId, isLiked -> feedViewModel.toggleLike(postId, isLiked) },
-                            isLiked = userLikedPostIds.contains(post.id)
+                            isLiked = userLikedPostIds.contains(post.id), // Pass actual liked status
+                            onUserClick = onUserClick // Pass the onUserClick lambda
                         )
                     }
                 }
@@ -102,19 +103,20 @@ fun FeedScreen(
                     item {
                         Text(
                             text = "Starije objave",
-                            style = MaterialTheme.typography.titleLarge, // Correct usage
+                            style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(vertical = 8.dp)
                         )
                     }
-                    items(olderPosts, key = { it.id }) { post -> // Explicitly define type for 'post'
-                        RunPostCard(
+                    items(olderPosts, key = { it.id }) { post ->
+                        RunPostCard( // Changed from FeedPostCard to RunPostCard
                             post = post,
-                            user = userProfiles[post.userId], // Access value of State<Map>
+                            user = userProfiles[post.userId],
                             dateFormat = dateFormat,
                             decimalFormat = decimalFormat,
                             onLikeClick = { postId, isLiked -> feedViewModel.toggleLike(postId, isLiked) },
-                            isLiked = userLikedPostIds.contains(post.id)
+                            isLiked = userLikedPostIds.contains(post.id), // Pass actual liked status
+                            onUserClick = onUserClick // Pass the onUserClick lambda
                         )
                     }
                 }

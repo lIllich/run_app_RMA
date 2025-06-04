@@ -10,8 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -26,54 +24,59 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.style.TextAlign // Correct import for TextAlign
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
-import com.example.run_app_rma.R // Pretpstavka da postoji defaultna slika
-import com.example.run_app_rma.data.firestore.model.RunPost // Import RunPost
+import com.example.run_app_rma.R
 import com.example.run_app_rma.data.firestore.model.User
-import com.example.run_app_rma.presentation.common.RunPostCard // Import the reusable RunPostCard
 import java.text.DecimalFormat
-import java.text.SimpleDateFormat // Import SimpleDateFormat
-import java.util.Date // Import Date
-import java.util.Locale // Import Locale
+import java.text.SimpleDateFormat
+import java.util.Locale
+import java.util.Date
+
 
 @Composable
 fun ProfileScreen(
-    profileViewModel: ProfileViewModel,
+    modifier: Modifier = Modifier,
+    profileViewModel: ProfileViewModel = viewModel(),
     onLogout: () -> Unit,
-    onEditProfile: (String) -> Unit
+    onEditProfile: (String) -> Unit,
+    onViewUserPosts: (String) -> Unit,
+    onViewFollowing: (String) -> Unit,
+    onViewFollowers: (String) -> Unit,
+    onUserClick: (String) -> Unit
 ) {
-    // Observe states from the ViewModel, providing initial values to help type inference
     val currentUser by profileViewModel.currentUser.collectAsState(initial = null)
-    val isLoading by profileViewModel.isLoading.collectAsState(initial = false)
-    val errorMessage by profileViewModel.errorMessage.collectAsState(initial = null)
-    val userPosts by profileViewModel.userPosts.collectAsState(initial = emptyList()) // Ensure initial list type is correct
-    val userProfilesForPosts by profileViewModel.userProfilesForPosts.collectAsState(initial = emptyMap()) // Ensure initial map type is correct
-    val userLikedPostIds by profileViewModel.userLikedPostIds.collectAsState(initial = emptySet()) // Ensure initial set type is correct
+    val isLoading by profileViewModel.isLoading.collectAsState()
+    val errorMessage by profileViewModel.errorMessage.collectAsState()
+    val followingCount by profileViewModel.followingCount.collectAsState()
+    val followersCount by profileViewModel.followersCount.collectAsState()
+    val postCount by profileViewModel.postCount.collectAsState() // Observe the post count
 
-    // Date and Decimal formats for displaying run data consistently
     val dateFormat = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
     val decimalFormat = DecimalFormat("#.##")
 
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxSize()
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Top // Changed to Top to allow scrolling for posts
+        verticalArrangement = Arrangement.Top
     ) {
         if (isLoading) {
-            CircularProgressIndicator(modifier = Modifier.size(50.dp))
-            Text("Učitavanje profila i objava...")
+            CircularProgressIndicator(modifier = Modifier.padding(16.dp))
+            Text("Učitavanje profila...")
         } else if (errorMessage != null) {
             Text("Greška: $errorMessage", color = MaterialTheme.colorScheme.error)
-            Button(onClick = { profileViewModel.fetchUserProfileAndPosts() }) { // Call combined fetch
+            Button(onClick = { profileViewModel.fetchUserProfileAndCounts() }) {
                 Text("Pokušaj ponovo")
             }
         } else if (currentUser != null) {
             UserProfileContent(user = currentUser!!)
             Spacer(modifier = Modifier.height(32.dp))
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceAround
@@ -96,38 +99,47 @@ fun ProfileScreen(
                     Text("Odjavi se")
                 }
             }
+            Spacer(modifier = Modifier.height(16.dp))
 
-            Spacer(modifier = Modifier.height(24.dp)) // Spacer before posts section
+            // Buttons for posts, following, and followers
+            Button(
+                onClick = { currentUser?.let { onViewUserPosts(it.id) } },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Moje objave ($postCount)") // Display post count here
+            }
 
-            Text(
-                text = "Moje objave",
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                textAlign = TextAlign.Center // Corrected: Use TextAlign.Center
-            )
+            Spacer(modifier = Modifier.height(16.dp))
 
-            // Check if userPosts is empty using the .isEmpty() extension function for List
-            if (userPosts.isEmpty()) {
-                Text("Još nema objava.", style = MaterialTheme.typography.bodyMedium)
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceAround
+            ) {
+                Button(
+                    onClick = { currentUser?.let { onViewFollowing(it.id) } },
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(end = 8.dp)
                 ) {
-                    items(userPosts, key = { it.id }) { post -> // 'it.id' now correctly refers to RunPost.id
-                        RunPostCard(
-                            post = post,
-                            user = userProfilesForPosts[post.userId], // 'post.userId' now correctly refers to RunPost.userId
-                            dateFormat = dateFormat,
-                            decimalFormat = decimalFormat,
-                            onLikeClick = { postId, isLiked -> profileViewModel.toggleLike(postId, isLiked) }, // 'toggleLike' resolved
-                            isLiked = userLikedPostIds.contains(post.id) // 'post.id' resolved
-                        )
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("$followingCount", style = MaterialTheme.typography.titleLarge)
+                        Text("Pratim", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+                Button(
+                    onClick = { currentUser?.let { onViewFollowers(it.id) } },
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(start = 8.dp)
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("$followersCount", style = MaterialTheme.typography.titleLarge)
+                        Text("Pratitelji", style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }
+            Spacer(modifier = Modifier.height(16.dp))
+
         } else {
             Text(text = "Korisnik nije prijavljen ili profil nije pronađen.")
             Button(onClick = { onLogout() }) {
@@ -155,17 +167,15 @@ fun UserProfileContent(user: User) {
         contentScale = ContentScale.Crop
     )
     Spacer(modifier = Modifier.height(16.dp))
-    Text(text = "Ime: ${user.displayName.ifEmpty { "N/A" }}")
+    Text(text = user.displayName.ifEmpty { "N/A" })
     Text(text = "Email: ${user.email}")
     user.age?.let { age ->
         Text(text = "Dob: $age")
     }
     Text(text = "Ukupna udaljenost: ${decimalFormat.format(user.totalDistanceRun)} km")
     Text(text = "Ukupno trčanja: ${user.totalRuns}")
+    // Display lastRunTimestamp if available and format it
     user.lastRunTimestamp?.let { timestamp ->
-        Text(text = "Zadnje trčanje: ${dateFormat.format(Date(timestamp))}")
-    }
-    user.createdAt?.let { date ->
-        Text(text = "Član od: ${dateFormat.format(date)}")
+        Text(text = "Posljednje trčanje: ${dateFormat.format(Date(timestamp))}")
     }
 }

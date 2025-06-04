@@ -42,6 +42,7 @@ import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.TimeUnit // Import TimeUnit for duration calculations
 
 /**
  * Reusable Composable for displaying a run post card.
@@ -54,6 +55,8 @@ import java.util.Locale
  * @param onLikeClick Lambda to be invoked when the like button is clicked.
  * Receives the postId and a boolean indicating if it's currently liked.
  * @param isLiked Indicates if the current user has liked this post.
+ * @param onUserClick Lambda to be invoked when the user header (profile picture/name) is clicked.
+ * Receives the userId of the post creator.
  */
 @Composable
 fun RunPostCard(
@@ -62,7 +65,8 @@ fun RunPostCard(
     dateFormat: SimpleDateFormat,
     decimalFormat: DecimalFormat,
     onLikeClick: (String, Boolean) -> Unit,
-    isLiked: Boolean
+    isLiked: Boolean,
+    onUserClick: (String) -> Unit // New parameter for user header click
 ) {
     Card(
         modifier = Modifier
@@ -73,7 +77,9 @@ fun RunPostCard(
             // User Header (Profile Picture, Display Name)
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { user?.id?.let { onUserClick(it) } } // Make the whole row clickable
             ) {
                 Image(
                     painter = if (user?.profileImageUrl != null && user.profileImageUrl.isNotEmpty()) {
@@ -110,7 +116,13 @@ fun RunPostCard(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(Icons.AutoMirrored.Filled.DirectionsRun, contentDescription = "Distance")
-                    Text("${decimalFormat.format(post.distance / 1000)} km", style = MaterialTheme.typography.bodyLarge)
+                    // Distance formatting logic
+                    val distanceText = if (post.distance < 1000) { // If distance is less than 1km (1000 meters)
+                        "${decimalFormat.format(post.distance)} m"
+                    } else {
+                        "${decimalFormat.format(post.distance / 1000)} km"
+                    }
+                    Text(distanceText, style = MaterialTheme.typography.bodyLarge)
                     Text("Udaljenost", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -119,12 +131,24 @@ fun RunPostCard(
                     Text("Tempo", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Default.AccessTime, contentDescription = "Duration") // Reusing Favorite icon for duration placeholder
+                    Icon(Icons.Default.AccessTime, contentDescription = "Duration")
+                    // Duration formatting logic
                     val durationMillis = post.endTime - post.startTime
-                    val minutes = (durationMillis / (1000 * 60)) % 60
-                    val hours = (durationMillis / (1000 * 60 * 60))
+                    val durationText = if (durationMillis < TimeUnit.HOURS.toMillis(1)) { // Less than 1 hour
+                        val minutes = TimeUnit.MILLISECONDS.toMinutes(durationMillis)
+                        val seconds = TimeUnit.MILLISECONDS.toSeconds(durationMillis) - TimeUnit.MINUTES.toSeconds(minutes)
+                        if (minutes == 0L) { // If duration is only in seconds
+                            "${seconds} s"
+                        } else {
+                            "${minutes} min i ${seconds} s"
+                        }
+                    } else {
+                        val hours = TimeUnit.MILLISECONDS.toHours(durationMillis)
+                        val minutes = TimeUnit.MILLISECONDS.toMinutes(durationMillis) - TimeUnit.HOURS.toMinutes(hours)
+                        String.format("%02d:%02d", hours, minutes)
+                    }
                     Text(
-                        text = String.format("%02d:%02d", hours, minutes),
+                        text = durationText,
                         style = MaterialTheme.typography.bodyLarge
                     )
                     Text("Trajanje", style = MaterialTheme.typography.bodySmall, color = Color.Gray)

@@ -33,7 +33,13 @@ import com.example.run_app_rma.presentation.feed.FeedViewModel
 import com.example.run_app_rma.presentation.follow.FollowViewModel
 import com.example.run_app_rma.presentation.profile.EditProfileScreen
 import com.example.run_app_rma.presentation.profile.EditProfileViewModel
-import com.example.run_app_rma.presentation.profile.ProfileViewModel
+import com.example.run_app_rma.presentation.profile.ProfileScreen
+import com.example.run_app_rma.presentation.profile.UserPostsScreen
+import com.example.run_app_rma.presentation.profile.UserPostsViewModel
+import com.example.run_app_rma.presentation.profile.UserListScreen
+import com.example.run_app_rma.presentation.profile.UserListViewModel
+import com.example.run_app_rma.presentation.profile.OtherUserProfileScreen
+import com.example.run_app_rma.presentation.profile.OtherUserProfileViewModel
 import com.example.run_app_rma.presentation.publish.PublishRunViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -42,7 +48,6 @@ import com.google.firebase.storage.FirebaseStorage
 
 class MainActivity : ComponentActivity() {
 
-    // Declare instances as lateinit to initialize them in onCreate
     private lateinit var locationService: LocationService
     private lateinit var sensorService: SensorService
     private lateinit var appDatabase: AppDatabase
@@ -53,7 +58,6 @@ class MainActivity : ComponentActivity() {
     private lateinit var firebaseAuth: FirebaseAuth
     private lateinit var firebaseStorage: FirebaseStorage
 
-    // Use a single ActivityResultLauncher for multiple permissions
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -61,7 +65,7 @@ class MainActivity : ComponentActivity() {
         val coarseLocationGranted = permissions[android.Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
         val cameraGranted = permissions[android.Manifest.permission.CAMERA] ?: false
         val readExternalStorageGranted = permissions[android.Manifest.permission.READ_EXTERNAL_STORAGE] ?: false
-        val readMediaImagesGranted = permissions[android.Manifest.permission.READ_MEDIA_IMAGES] ?: false // For Android 13+
+        val readMediaImagesGranted = permissions[android.Manifest.permission.READ_MEDIA_IMAGES] ?: false
 
         if (fineLocationGranted && coarseLocationGranted) {
             Toast.makeText(this, "Location permissions granted.", Toast.LENGTH_SHORT).show()
@@ -72,7 +76,6 @@ class MainActivity : ComponentActivity() {
         if (cameraGranted) {
             Toast.makeText(this, "Camera permission granted.", Toast.LENGTH_SHORT).show()
         }
-        // Check for relevant storage permissions based on Android version
         if (readExternalStorageGranted || readMediaImagesGranted) {
             Toast.makeText(this, "Read storage permission granted.", Toast.LENGTH_SHORT).show()
         }
@@ -83,7 +86,6 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        // Initialize all repositories and services here
         locationService = LocationService(this)
         sensorService = SensorService(this)
         appDatabase = AppDatabase.getInstance(applicationContext)
@@ -94,15 +96,14 @@ class MainActivity : ComponentActivity() {
         firebaseAuth = FirebaseAuth.getInstance()
         firebaseStorage = FirebaseStorage.getInstance()
 
-        // Request all necessary permissions here
         requestPermissionLauncher.launch(
             arrayOf(
                 android.Manifest.permission.ACCESS_FINE_LOCATION,
                 android.Manifest.permission.ACCESS_COARSE_LOCATION,
                 android.Manifest.permission.CAMERA,
-                android.Manifest.permission.READ_EXTERNAL_STORAGE, // For older Android versions
-                android.Manifest.permission.WRITE_EXTERNAL_STORAGE, // For older Android versions
-                android.Manifest.permission.READ_MEDIA_IMAGES // For Android 13+
+                android.Manifest.permission.READ_EXTERNAL_STORAGE,
+                android.Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                android.Manifest.permission.READ_MEDIA_IMAGES
             )
         )
 
@@ -110,7 +111,6 @@ class MainActivity : ComponentActivity() {
             Run_app_RMATheme {
                 val navController = rememberNavController()
 
-                // Determine start destination based on current login status
                 val isLoggedIn by remember { mutableStateOf(authRepository.isLoggedIn()) }
 
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
@@ -127,7 +127,6 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                         composable("main_screen") {
-                            // Provide ViewModels to MainScreenWithTabs using their Factories
                             val runViewModel: RunViewModel = viewModel(
                                 factory = RunViewModel.Factory(
                                     appDatabase.runDao(),
@@ -137,44 +136,14 @@ class MainActivity : ComponentActivity() {
                                     sensorService
                                 )
                             )
-                            val profileViewModel: ProfileViewModel = viewModel(
-                                factory = ProfileViewModel.Factory(
-                                    userRepository = userRepository,
-                                    firebaseAuth = firebaseAuth,
-                                    authRepository = authRepository,
-                                    runPostRepository = runPostRepository
-                                )
-                            )
-                            val followViewModel: FollowViewModel = viewModel(
-                                factory = FollowViewModel.Factory(
-                                    userRepository = userRepository,
-                                    followRepository = followRepository,
-                                    firebaseAuth = firebaseAuth
-                                )
-                            )
-                            val publishRunViewModel: PublishRunViewModel = viewModel(
-                                factory = PublishRunViewModel.Factory(
-                                    runDao = appDatabase.runDao(),
-                                    runPostRepository = runPostRepository,
-                                    userRepository = userRepository,
-                                    firebaseAuth = firebaseAuth
-                                )
-                            )
-                            val feedViewModel: FeedViewModel = viewModel(
-                                factory = FeedViewModel.Factory(
-                                    runPostRepository = runPostRepository,
-                                    userRepository = userRepository,
-                                    firebaseAuth = firebaseAuth,
-                                    followRepository = followRepository // Pass FollowRepository
-                                )
-                            )
 
                             MainScreenWithTabs(
                                 runViewModel = runViewModel,
-                                profileViewModel = profileViewModel,
-                                followViewModel = followViewModel,
-                                publishRunViewModel = publishRunViewModel,
-                                feedViewModel = feedViewModel,
+                                userRepository = userRepository,
+                                firebaseAuth = firebaseAuth,
+                                authRepository = authRepository,
+                                runPostRepository = runPostRepository,
+                                appDatabase = appDatabase,
                                 onLogout = {
                                     authRepository.logout()
                                     navController.navigate("login") {
@@ -183,6 +152,18 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onEditProfile = { userId ->
                                     navController.navigate("edit_profile/$userId")
+                                },
+                                onViewUserPosts = { userId ->
+                                    navController.navigate("user_posts_screen/$userId")
+                                },
+                                onViewFollowing = { userId ->
+                                    navController.navigate("user_list_screen/following/$userId")
+                                },
+                                onViewFollowers = { userId ->
+                                    navController.navigate("user_list_screen/followers/$userId")
+                                },
+                                onUserClick = { clickedUserId -> // Pass the onUserClick lambda here
+                                    navController.navigate("other_user_profile_screen/$clickedUserId")
                                 }
                             )
                         }
@@ -206,6 +187,76 @@ class MainActivity : ComponentActivity() {
                                 )
                             } else {
                                 Toast.makeText(this@MainActivity, "User ID missing for edit profile.", Toast.LENGTH_SHORT).show()
+                                navController.popBackStack()
+                            }
+                        }
+                        composable("user_posts_screen/{userId}") { backStackEntry ->
+                            val userId = backStackEntry.arguments?.getString("userId")
+                            if (userId != null) {
+                                UserPostsScreen(
+                                    userPostsViewModel = viewModel(
+                                        factory = UserPostsViewModel.Factory
+                                    ),
+                                    onBack = { navController.popBackStack() },
+                                    onUserClick = { clickedUserId -> // Pass onUserClick to UserPostsScreen
+                                        navController.navigate("other_user_profile_screen/$clickedUserId")
+                                    }
+                                )
+                            } else {
+                                Toast.makeText(this@MainActivity, "User ID missing for posts.", Toast.LENGTH_SHORT).show()
+                                navController.popBackStack()
+                            }
+                        }
+                        composable("user_list_screen/{listType}/{userId}") { backStackEntry ->
+                            val userId = backStackEntry.arguments?.getString("userId")
+                            val listType = backStackEntry.arguments?.getString("listType")
+                            if (userId != null && listType != null) {
+                                UserListScreen(
+                                    userListViewModel = viewModel(
+                                        factory = UserListViewModel.Factory
+                                    ),
+                                    onBack = { navController.popBackStack() },
+                                    onUserClick = { clickedUserId ->
+                                        navController.navigate("other_user_profile_screen/$clickedUserId")
+                                    }
+                                )
+                            } else {
+                                Toast.makeText(this@MainActivity, "User ID or list type missing.", Toast.LENGTH_SHORT).show()
+                                navController.popBackStack()
+                            }
+                        }
+                        composable("other_user_profile_screen/{userId}") { backStackEntry ->
+                            val userId = backStackEntry.arguments?.getString("userId")
+                            if (userId != null) {
+                                OtherUserProfileScreen(
+                                    otherUserProfileViewModel = viewModel(
+                                        factory = OtherUserProfileViewModel.Factory
+                                    ),
+                                    onBack = { navController.popBackStack() },
+                                    onEditProfile = { currentUserId ->
+                                        navController.navigate("edit_profile/$currentUserId")
+                                    },
+                                    onLogout = {
+                                        authRepository.logout()
+                                        navController.navigate("login") {
+                                            popUpTo("main_screen") { inclusive = true }
+                                        }
+                                    },
+                                    onViewUserPosts = { viewedUserId ->
+                                        navController.navigate("user_posts_screen/$viewedUserId")
+                                    },
+                                    onViewFollowing = { viewedUserId ->
+                                        navController.navigate("user_list_screen/following/$viewedUserId")
+                                    },
+                                    onViewFollowers = { viewedUserId ->
+                                        navController.navigate("user_list_screen/followers/$viewedUserId")
+                                    },
+                                    onUserClick = { clickedUserId -> // Pass onUserClick to OtherUserProfileScreen
+                                        navController.navigate("other_user_profile_screen/$clickedUserId")
+                                    }
+                                )
+                            } else {
+                                Toast.makeText(this@MainActivity, "User ID missing for other user profile.", Toast.LENGTH_SHORT).show()
                                 navController.popBackStack()
                             }
                         }
