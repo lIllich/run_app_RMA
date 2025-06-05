@@ -22,4 +22,7 @@ interface RunDao {
     // get a specific run by its ID
     @Query("SELECT * FROM runs WHERE id = :runId")
     suspend fun getRunById(runId: Long): RunEntity?
+
+    @Query("DELETE FROM runs WHERE id = :runId")
+    suspend fun deleteRunById(runId: Long)
 }

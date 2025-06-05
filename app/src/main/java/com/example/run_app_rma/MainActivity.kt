@@ -143,9 +143,7 @@ class MainActivity : ComponentActivity() {
                                 factory = RunViewModel.Factory(
                                     appDatabase.runDao(),
                                     appDatabase.locationDao(),
-                                    appDatabase.sensorDao(),
-                                    locationService,
-                                    sensorService
+                                    locationService
                                 )
                             )
 

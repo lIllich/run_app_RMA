@@ -10,13 +10,10 @@ import androidx.lifecycle.ViewModelProvider // Import ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.run_app_rma.data.dao.LocationDao
 import com.example.run_app_rma.data.dao.RunDao
-import com.example.run_app_rma.data.dao.SensorDao
 import com.example.run_app_rma.domain.model.LocationDataEntity
 import com.example.run_app_rma.domain.model.RunEntity
-import com.example.run_app_rma.domain.model.SensorDataEntity
 import com.example.run_app_rma.domain.model.SensorType
 import com.example.run_app_rma.sensor.tracking.LocationService
-import com.example.run_app_rma.sensor.tracking.SensorService
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -26,9 +23,7 @@ import java.io.File
 class RunViewModel(
     private val runDao: RunDao,
     private val locationDao: LocationDao,
-    private val sensorDao: SensorDao,
-    private val locationService: LocationService,
-    private val sensorService: SensorService
+    private val locationService: LocationService
 ) : ViewModel() {
 
     private val _isTracking = MutableStateFlow(false)
@@ -39,15 +34,10 @@ class RunViewModel(
 
     private var currentRunStartTime: Long = 0L
     private var currentRunLocations = mutableStateListOf<Location>()
-    private var currentRunSensorData = mutableListOf<SensorDataEntity>()
 
     private var LocationJob: Job? = null
-    private var accelerometerJob: Job? = null
-    private var gyroscopeJob: Job? = null
 
     val liveLocationData = mutableStateOf("Lat: N/A, Lng: N/A")
-    val liveAccelerometerData = mutableStateOf("Acc -> X: N/A, Y: N/A, Z: N/A")
-    val liveGyroscopeData = mutableStateOf("Gyro -> X: N/A, Y: N/A, Z: N/A")
 
     init {
         // inicijalizacija servisa za prikaz u stvarnom vremenu
@@ -70,39 +60,6 @@ class RunViewModel(
                 }
             }
         }
-
-        sensorService.startListening(
-            onAccelerometerData = { values ->
-                liveAccelerometerData.value = "Acc -> X:${values[0]}, y:${values[1]}, Z:${values[2]}"
-                if(_isTracking.value && _currentRunId.value != null) {
-                    currentRunSensorData.add(
-                        SensorDataEntity(
-                            runId = _currentRunId.value!!,
-                            timestamp = System.currentTimeMillis(),
-                            sensorType = SensorType.ACCELEROMETER,
-                            x = values[0],
-                            y = values[1],
-                            z = values[2]
-                        )
-                    )
-                }
-            },
-            onGyroscopeData = { values ->
-                liveGyroscopeData.value = "Gyro -> X:${values[0]}, y:${values[1]}, Z:${values[2]}"
-                if(_isTracking.value && _currentRunId.value != null) {
-                    currentRunSensorData.add(
-                        SensorDataEntity(
-                            runId = _currentRunId.value!!,
-                            timestamp = System.currentTimeMillis(),
-                            sensorType = SensorType.GYROSCOPE,
-                            x = values[0],
-                            y = values[1],
-                            z = values[2]
-                        )
-                    )
-                }
-            }
-        )
     }
 
     fun startRun() {
@@ -111,7 +68,6 @@ class RunViewModel(
         _isTracking.value = true
         currentRunStartTime = System.currentTimeMillis()
         currentRunLocations.clear()
-        currentRunSensorData.clear()
 
         viewModelScope.launch {
             val newRun = RunEntity(
@@ -133,11 +89,6 @@ class RunViewModel(
 
         viewModelScope.launch {
             val runId = _currentRunId.value!!
-
-            if(currentRunSensorData.isNotEmpty()) {
-                sensorDao.insertSensorData(currentRunSensorData.toList())
-                currentRunSensorData.clear()
-            }
 
             var totalDistance = 0f
             if(currentRunLocations.size >= 2) {
@@ -167,21 +118,18 @@ class RunViewModel(
     override fun onCleared() {
         super.onCleared()
         locationService.stopLocationUpdates()
-        sensorService.stopListening()
     }
 
     // Factory for RunViewModel
     class Factory(
         private val runDao: RunDao,
         private val locationDao: LocationDao,
-        private val sensorDao: SensorDao,
-        private val locationService: LocationService,
-        private val sensorService: SensorService
+        private val locationService: LocationService
     ) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(RunViewModel::class.java)) {
                 @Suppress("UNCHECKED_CAST")
-                return RunViewModel(runDao, locationDao, sensorDao, locationService, sensorService) as T
+                return RunViewModel(runDao, locationDao, locationService) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class")
         }
