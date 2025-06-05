@@ -27,7 +27,8 @@ fun UserPostsScreen(
     modifier: Modifier = Modifier,
     userPostsViewModel: UserPostsViewModel = viewModel(factory = UserPostsViewModel.Factory),
     onBack: () -> Unit,
-    onUserClick: (String) -> Unit // New parameter: Lambda to navigate to another user's profile
+    onUserClick: (String) -> Unit, // New parameter: Lambda to navigate to another user's profile
+    onPostClick: (String) -> Unit // New parameter: Lambda to navigate to a specific post
 ) {
     val userPosts by userPostsViewModel.userPosts.collectAsState(initial = emptyList())
     val userLikedPostIds by userPostsViewModel.userLikedPostIds.collectAsState(initial = emptySet())
@@ -82,7 +83,8 @@ fun UserPostsScreen(
                             decimalFormat = decimalFormat,
                             onLikeClick = { postId, isLiked -> userPostsViewModel.toggleLike(postId, isLiked) },
                             isLiked = userLikedPostIds.contains(post.id),
-                            onUserClick = onUserClick // Pass the onUserClick lambda
+                            onUserClick = onUserClick, // Pass the onUserClick lambda
+                            onPostClick = onPostClick // Pass the onPostClick lambda
                         )
                     }
                 }

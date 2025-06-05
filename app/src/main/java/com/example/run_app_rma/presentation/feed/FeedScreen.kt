@@ -21,7 +21,8 @@ import java.util.Locale
 fun FeedScreen(
     modifier: Modifier = Modifier,
     feedViewModel: FeedViewModel = viewModel(), // ViewModel will be provided by MainScreenWithTabs
-    onUserClick: (String) -> Unit // New parameter: Lambda to navigate to another user's profile
+    onUserClick: (String) -> Unit, // New parameter: Lambda to navigate to another user's profile
+    onPostClick: (String) -> Unit // New parameter: Lambda to navigate to a specific post
 ) {
     val newPosts = feedViewModel.newPosts
     val olderPosts = feedViewModel.olderPosts
@@ -77,7 +78,8 @@ fun FeedScreen(
                             decimalFormat = decimalFormat,
                             onLikeClick = { postId, isLiked -> feedViewModel.toggleLike(postId, isLiked) },
                             isLiked = userLikedPostIds.contains(post.id), // Pass actual liked status
-                            onUserClick = onUserClick // Pass the onUserClick lambda
+                            onUserClick = onUserClick, // Pass the onUserClick lambda
+                            onPostClick = onPostClick // Pass the onPostClick lambda
                         )
                     }
                 }
@@ -99,7 +101,8 @@ fun FeedScreen(
                             decimalFormat = decimalFormat,
                             onLikeClick = { postId, isLiked -> feedViewModel.toggleLike(postId, isLiked) },
                             isLiked = userLikedPostIds.contains(post.id), // Pass actual liked status
-                            onUserClick = onUserClick // Pass the onUserClick lambda
+                            onUserClick = onUserClick, // Pass the onUserClick lambda
+                            onPostClick = onPostClick // Pass the onPostClick lambda
                         )
                     }
                 }

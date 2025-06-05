@@ -3,6 +3,7 @@ package com.example.run_app_rma.data.firestore.repository
 import com.example.run_app_rma.data.firestore.model.Comment
 import com.example.run_app_rma.data.firestore.model.Like
 import com.example.run_app_rma.data.firestore.model.RunPost
+import com.example.run_app_rma.data.firestore.model.User // Import User model
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
@@ -13,6 +14,7 @@ class RunPostRepository(private val firestore: FirebaseFirestore = FirebaseFires
     private val postsCollection = firestore.collection("posts")
     private val likesCollection = firestore.collection("likes")
     private val commentsCollection = firestore.collection("comments")
+    private val usersCollection = firestore.collection("users") // Reference to users collection
 
     suspend fun createRunPost(runPost: RunPost): Result<String> {
         return try {
@@ -52,18 +54,11 @@ class RunPostRepository(private val firestore: FirebaseFirestore = FirebaseFires
         }
     }
 
-    /**
-     * Fetches run posts from a list of specified user IDs.
-     * @param userIds A list of user IDs whose posts to fetch.
-     * @return A Result containing a list of RunPost objects or an Exception.
-     */
     suspend fun getRunPostsByUsers(userIds: List<String>): Result<List<RunPost>> {
         if (userIds.isEmpty()) {
-            return Result.success(emptyList()) // No users to follow, so no posts
+            return Result.success(emptyList())
         }
         return try {
-            // Firestore 'in' query supports up to 10 user IDs
-            // If you need to query more than 10, you'll need to split the list and make multiple queries
             val posts = postsCollection
                 .whereIn("userId", userIds)
                 .orderBy("timestamp", Query.Direction.DESCENDING)
@@ -71,6 +66,20 @@ class RunPostRepository(private val firestore: FirebaseFirestore = FirebaseFires
                 .await()
                 .toObjects(RunPost::class.java)
             Result.success(posts)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    // New: Get all likes for a specific post
+    suspend fun getLikesForPost(postId: String): Result<List<Like>> {
+        return try {
+            val likes = likesCollection
+                .whereEqualTo("postId", postId)
+                .get()
+                .await()
+                .toObjects(Like::class.java)
+            Result.success(likes)
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -163,6 +172,23 @@ class RunPostRepository(private val firestore: FirebaseFirestore = FirebaseFires
                 .await()
                 .toObjects(Comment::class.java)
             Result.success(comments)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    // New: Get multiple users by a list of user IDs
+    suspend fun getUsersByIds(userIds: List<String>): Result<List<User>> {
+        if (userIds.isEmpty()) {
+            return Result.success(emptyList())
+        }
+        return try {
+            val users = usersCollection
+                .whereIn("id", userIds)
+                .get()
+                .await()
+                .toObjects(User::class.java)
+            Result.success(users)
         } catch (e: Exception) {
             Result.failure(e)
         }

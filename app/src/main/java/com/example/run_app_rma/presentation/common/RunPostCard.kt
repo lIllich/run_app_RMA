@@ -59,6 +59,8 @@ import java.util.concurrent.TimeUnit // Import TimeUnit for duration calculation
  * @param isLiked Indicates if the current user has liked this post.
  * @param onUserClick Lambda to be invoked when the user header (profile picture/name) is clicked.
  * Receives the userId of the post creator.
+ * @param onPostClick Lambda to be invoked when the entire post card is clicked.
+ * Receives the postId.
  */
 @Composable
 fun RunPostCard(
@@ -68,11 +70,13 @@ fun RunPostCard(
     decimalFormat: DecimalFormat,
     onLikeClick: (String, Boolean) -> Unit,
     isLiked: Boolean,
-    onUserClick: (String) -> Unit // New parameter for user header click
+    onUserClick: (String) -> Unit, // New parameter for user header click
+    onPostClick: (String) -> Unit // New parameter for whole post click
 ) {
     Card(
         modifier = Modifier
-            .fillMaxWidth(),
+            .fillMaxWidth()
+            .clickable { onPostClick(post.id) }, // Make the entire card clickable
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {

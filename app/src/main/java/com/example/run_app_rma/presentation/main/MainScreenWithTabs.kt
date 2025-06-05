@@ -68,7 +68,8 @@ fun MainScreenWithTabs(
     onViewUserPosts: (String) -> Unit,
     onViewFollowing: (String) -> Unit,
     onViewFollowers: (String) -> Unit,
-    onUserClick: (String) -> Unit // For UserCard clicks in FollowScreen and RunPostCard clicks
+    onUserClick: (String) -> Unit, // For UserCard clicks in FollowScreen and RunPostCard clicks
+    onPostClick: (String) -> Unit // Added onPostClick parameter
 ) {
     val pagerState = rememberPagerState(initialPage = TabScreen.FEED.ordinal) { // Set initial page to Feed
         TabScreen.values().size
@@ -148,7 +149,8 @@ fun MainScreenWithTabs(
             when (TabScreen.values()[page]) {
                 TabScreen.FEED -> FeedScreen(
                     feedViewModel = feedViewModel,
-                    onUserClick = onUserClick // Pass the onUserClick lambda
+                    onUserClick = onUserClick, // Pass the onUserClick lambda
+                    onPostClick = onPostClick // Pass onPostClick to FeedScreen
                 )
                 TabScreen.RUNNING -> RunningScreen(runViewModel = runViewModel)
                 TabScreen.SEARCH -> SearchUserScreen( // Renamed from FollowScreen

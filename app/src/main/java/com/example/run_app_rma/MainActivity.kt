@@ -30,6 +30,8 @@ import com.example.run_app_rma.data.firestore.repository.UserRepository
 import com.example.run_app_rma.data.firestore.repository.FollowRepository
 import com.example.run_app_rma.data.firestore.repository.RunPostRepository
 import com.example.run_app_rma.presentation.feed.FeedViewModel
+import com.example.run_app_rma.presentation.runpost.RunPostScreen
+import com.example.run_app_rma.presentation.runpost.RunPostViewModel
 import com.example.run_app_rma.presentation.search.SearchUserViewModel // Renamed from FollowViewModel
 import com.example.run_app_rma.presentation.profile.EditProfileScreen
 import com.example.run_app_rma.presentation.profile.EditProfileViewModel
@@ -164,6 +166,9 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onUserClick = { clickedUserId -> // Pass the onUserClick lambda here
                                     navController.navigate("other_user_profile_screen/$clickedUserId")
+                                },
+                                onPostClick = { postId -> // Pass onPostClick to navigate to RunPostScreen
+                                    navController.navigate("run_post_screen/$postId")
                                 }
                             )
                         }
@@ -200,6 +205,9 @@ class MainActivity : ComponentActivity() {
                                     onBack = { navController.popBackStack() },
                                     onUserClick = { clickedUserId -> // Pass onUserClick to UserPostsScreen
                                         navController.navigate("other_user_profile_screen/$clickedUserId")
+                                    },
+                                    onPostClick = { postId -> // Pass onPostClick to UserPostsScreen
+                                        navController.navigate("run_post_screen/$postId")
                                     }
                                 )
                             } else {
@@ -257,6 +265,30 @@ class MainActivity : ComponentActivity() {
                                 )
                             } else {
                                 Toast.makeText(this@MainActivity, "User ID missing for other user profile.", Toast.LENGTH_SHORT).show()
+                                navController.popBackStack()
+                            }
+                        }
+                        composable("run_post_screen/{postId}") { backStackEntry ->
+                            val postId = backStackEntry.arguments?.getString("postId")
+                            if (postId != null) {
+                                RunPostScreen(
+                                    runPostViewModel = viewModel(
+                                        factory = RunPostViewModel.Factory
+                                    ),
+                                    onBack = { navController.popBackStack() },
+                                    onUserClick = { clickedUserId ->
+                                        navController.navigate("other_user_profile_screen/$clickedUserId")
+                                    },
+                                    onViewLikedUsers = { postId, listType ->
+                                        navController.navigate("user_list_screen/$listType/$postId")
+                                    },
+                                    onViewComments = { postId ->
+                                        // TODO: Implement navigation to comments screen
+                                        Toast.makeText(this@MainActivity, "Comments for post $postId", Toast.LENGTH_SHORT).show()
+                                    }
+                                )
+                            } else {
+                                Toast.makeText(this@MainActivity, "Post ID missing.", Toast.LENGTH_SHORT).show()
                                 navController.popBackStack()
                             }
                         }
