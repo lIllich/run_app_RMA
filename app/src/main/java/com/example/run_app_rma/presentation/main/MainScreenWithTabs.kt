@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.DirectionsRun
 import androidx.compose.material.icons.filled.DynamicFeed
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.UploadFile // Keep this for "Objavi"
+import androidx.compose.material.icons.filled.Search // Import for Search icon
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -31,8 +32,8 @@ import com.example.run_app_rma.data.firestore.repository.UserRepository
 import com.example.run_app_rma.data.remote.AuthRepository
 import com.example.run_app_rma.presentation.feed.FeedScreen // Import FeedScreen
 import com.example.run_app_rma.presentation.feed.FeedViewModel // Import FeedViewModel
-import com.example.run_app_rma.presentation.follow.FollowScreen
-import com.example.run_app_rma.presentation.follow.FollowViewModel
+import com.example.run_app_rma.presentation.search.SearchUserScreen // Renamed from FollowScreen
+import com.example.run_app_rma.presentation.search.SearchUserViewModel // Renamed from FollowViewModel
 import com.example.run_app_rma.presentation.profile.ProfileScreen
 import com.example.run_app_rma.presentation.profile.ProfileViewModel
 import com.example.run_app_rma.presentation.publish.PublishRunScreen // Import PublishRunScreen
@@ -45,7 +46,7 @@ import kotlinx.coroutines.launch
 
 enum class TabScreen(val title: String, val icon: ImageVector) {
     FEED("Feed", Icons.Default.DynamicFeed),
-    FOLLOW("Prati", Icons.Default.People),
+    SEARCH("Traži", Icons.Default.Search),
     RUNNING("Trčanje", Icons.AutoMirrored.Filled.DirectionsRun),
     PUBLISH("Objavi", Icons.Default.ArrowUpward),
     PROFILE("Profil", Icons.Default.AccountCircle)
@@ -61,15 +62,15 @@ fun MainScreenWithTabs(
     authRepository: AuthRepository,
     onLogout: () -> Unit,
     onEditProfile: (String) -> Unit,
-    runPostRepository: RunPostRepository,
-    appDatabase: com.example.run_app_rma.data.db.AppDatabase,
+    runPostRepository: RunPostRepository, // Passed from MainActivity
+    appDatabase: com.example.run_app_rma.data.db.AppDatabase, // Passed from MainActivity
     // New parameters to pass down navigation actions
     onViewUserPosts: (String) -> Unit,
     onViewFollowing: (String) -> Unit,
     onViewFollowers: (String) -> Unit,
     onUserClick: (String) -> Unit // For UserCard clicks in FollowScreen and RunPostCard clicks
 ) {
-    val pagerState = rememberPagerState(initialPage = TabScreen.FEED.ordinal) {
+    val pagerState = rememberPagerState(initialPage = TabScreen.FEED.ordinal) { // Set initial page to Feed
         TabScreen.values().size
     }
     val scope = rememberCoroutineScope()
@@ -84,8 +85,8 @@ fun MainScreenWithTabs(
         )
     )
 
-    val followViewModel: FollowViewModel = viewModel(
-        factory = FollowViewModel.Factory(
+    val searchUserViewModel: SearchUserViewModel = viewModel( // Renamed from followViewModel
+        factory = SearchUserViewModel.Factory( // Renamed from FollowViewModel.Factory
             userRepository = userRepository,
             followRepository = FollowRepository(FirebaseFirestore.getInstance()),
             firebaseAuth = firebaseAuth
@@ -110,9 +111,10 @@ fun MainScreenWithTabs(
         )
     )
 
+    // Observe changes in the selected tab and refresh data accordingly
     LaunchedEffect(pagerState.currentPage) {
         when (TabScreen.values()[pagerState.currentPage]) {
-            TabScreen.FEED -> feedViewModel.loadFeedPosts()
+            TabScreen.FEED -> feedViewModel.loadFeedPosts() // Load posts when Feed tab is selected
             TabScreen.PROFILE -> profileViewModel.fetchUserProfileAndCounts()
             TabScreen.PUBLISH -> publishRunViewModel.loadLocalRuns()
             else -> { /* Do nothing for other tabs */ }
@@ -149,8 +151,8 @@ fun MainScreenWithTabs(
                     onUserClick = onUserClick // Pass the onUserClick lambda
                 )
                 TabScreen.RUNNING -> RunningScreen(runViewModel = runViewModel)
-                TabScreen.FOLLOW -> FollowScreen(
-                    followViewModel = followViewModel,
+                TabScreen.SEARCH -> SearchUserScreen( // Renamed from FollowScreen
+                    searchUserViewModel = searchUserViewModel, // Renamed from followViewModel
                     onUserClick = onUserClick // Pass the onUserClick lambda
                 )
                 TabScreen.PUBLISH -> PublishRunScreen(publishRunViewModel = publishRunViewModel)

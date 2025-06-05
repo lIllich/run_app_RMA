@@ -1,4 +1,4 @@
-package com.example.run_app_rma.presentation.follow
+package com.example.run_app_rma.presentation.search // New package name
 
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateListOf
@@ -19,7 +19,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 
-class FollowViewModel(
+class SearchUserViewModel( // Renamed from FollowViewModel
     private val userRepository: UserRepository,
     private val followRepository: FollowRepository,
     private val firebaseAuth: FirebaseAuth
@@ -77,7 +77,7 @@ class FollowViewModel(
                         _isFollowingMap[followingId] = true
                     }
                 }.onFailure { e ->
-                    _errorMessage.value = "Failed to fetch following status: ${e.message}"
+                    _errorMessage.value = "Greška pri dohvaćanju statusa praćenja: ${e.message}" // Changed text
                 }
             }
         }
@@ -102,7 +102,7 @@ class FollowViewModel(
                 // After fetching users, update their following status
                 updateFollowingStatusForUsers(fetchedUsers.map { it.id })
             }.onFailure { e ->
-                _errorMessage.value = "Error searching users: ${e.message}"
+                _errorMessage.value = "Greška pri pretraživanju korisnika: ${e.message}" // Changed text
             }
             _isLoading.value = false // Reset main loading after search
         }
@@ -127,7 +127,7 @@ class FollowViewModel(
 
     fun toggleFollow(targetUserId: String) {
         val currentLoggedInUserId = currentUserId ?: run {
-            _errorMessage.value = "User not logged in."
+            _errorMessage.value = "Korisnik nije prijavljen." // Changed text
             return
         }
 
@@ -141,14 +141,14 @@ class FollowViewModel(
                 result.onSuccess {
                     _isFollowingMap[targetUserId] = false
                 }.onFailure { e ->
-                    _errorMessage.value = "Failed to unfollow user: ${e.message}"
+                    _errorMessage.value = "Greška pri prestanku praćenja: ${e.message}" // Changed text
                 }
             } else {
                 val result = followRepository.followUser(currentLoggedInUserId, targetUserId)
                 result.onSuccess {
                     _isFollowingMap[targetUserId] = true
                 }.onFailure { e ->
-                    _errorMessage.value = "Failed to follow user: ${e.message}"
+                    _errorMessage.value = "Greška pri praćenju: ${e.message}" // Changed text
                 }
             }
             _isTogglingFollowMap[targetUserId] = false // Reset loading for this specific user
@@ -161,9 +161,9 @@ class FollowViewModel(
         private val firebaseAuth: FirebaseAuth
     ) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            if (modelClass.isAssignableFrom(FollowViewModel::class.java)) {
+            if (modelClass.isAssignableFrom(SearchUserViewModel::class.java)) { // Renamed from FollowViewModel
                 @Suppress("UNCHECKED_CAST")
-                return FollowViewModel(userRepository, followRepository, firebaseAuth) as T
+                return SearchUserViewModel(userRepository, followRepository, firebaseAuth) as T // Renamed from FollowViewModel
             }
             throw IllegalArgumentException("Unknown ViewModel class")
         }

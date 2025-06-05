@@ -30,7 +30,7 @@ import com.example.run_app_rma.data.firestore.repository.UserRepository
 import com.example.run_app_rma.data.firestore.repository.FollowRepository
 import com.example.run_app_rma.data.firestore.repository.RunPostRepository
 import com.example.run_app_rma.presentation.feed.FeedViewModel
-import com.example.run_app_rma.presentation.follow.FollowViewModel
+import com.example.run_app_rma.presentation.search.SearchUserViewModel // Renamed from FollowViewModel
 import com.example.run_app_rma.presentation.profile.EditProfileScreen
 import com.example.run_app_rma.presentation.profile.EditProfileViewModel
 import com.example.run_app_rma.presentation.profile.ProfileScreen
