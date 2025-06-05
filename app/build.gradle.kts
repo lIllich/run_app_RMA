@@ -86,4 +86,6 @@ dependencies {
     implementation(libs.coil.compose) // Za učitavanje slika s URL-a (profilna slika)
 
     implementation(libs.gson)
+    implementation(libs.accompanist.pager)
+    implementation(libs.accompanist.pager.indicators)
 }

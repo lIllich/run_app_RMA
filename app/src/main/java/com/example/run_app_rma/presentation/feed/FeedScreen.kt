@@ -24,8 +24,8 @@ fun FeedScreen(
     onUserClick: (String) -> Unit, // New parameter: Lambda to navigate to another user's profile
     onPostClick: (String) -> Unit // New parameter: Lambda to navigate to a specific post
 ) {
-    val newPosts = feedViewModel.newPosts
-    val olderPosts = feedViewModel.olderPosts
+    // Observe the single list of all posts
+    val allPosts = feedViewModel.allPosts
     val isLoading by feedViewModel.isLoading.collectAsState()
     val errorMessage by feedViewModel.errorMessage.collectAsState()
     val userProfiles by feedViewModel.userProfiles // Directly observe the State<Map>
@@ -40,8 +40,6 @@ fun FeedScreen(
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-
-
         if (isLoading) {
             CircularProgressIndicator(modifier = Modifier.padding(16.dp))
         }
@@ -54,57 +52,26 @@ fun FeedScreen(
             )
         }
 
-        if (newPosts.isEmpty() && olderPosts.isEmpty() && !isLoading) {
+        // Check if allPosts is empty, as olderPosts and newPosts no longer exist
+        if (allPosts.isEmpty() && !isLoading) {
             Text("Nema objava za prikaz.")
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                if (newPosts.isNotEmpty()) {
-                    item {
-                        Text(
-                            text = "Nove objave",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(vertical = 8.dp)
-                        )
-                    }
-                    items(newPosts, key = { it.id }) { post ->
-                        RunPostCard( // Changed from FeedPostCard to RunPostCard
-                            post = post,
-                            user = userProfiles[post.userId],
-                            dateFormat = dateFormat,
-                            decimalFormat = decimalFormat,
-                            onLikeClick = { postId, isLiked -> feedViewModel.toggleLike(postId, isLiked) },
-                            isLiked = userLikedPostIds.contains(post.id), // Pass actual liked status
-                            onUserClick = onUserClick, // Pass the onUserClick lambda
-                            onPostClick = onPostClick // Pass the onPostClick lambda
-                        )
-                    }
-                }
-
-                if (olderPosts.isNotEmpty()) {
-                    item {
-                        Text(
-                            text = "Starije objave",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(vertical = 8.dp)
-                        )
-                    }
-                    items(olderPosts, key = { it.id }) { post ->
-                        RunPostCard( // Changed from FeedPostCard to RunPostCard
-                            post = post,
-                            user = userProfiles[post.userId],
-                            dateFormat = dateFormat,
-                            decimalFormat = decimalFormat,
-                            onLikeClick = { postId, isLiked -> feedViewModel.toggleLike(postId, isLiked) },
-                            isLiked = userLikedPostIds.contains(post.id), // Pass actual liked status
-                            onUserClick = onUserClick, // Pass the onUserClick lambda
-                            onPostClick = onPostClick // Pass the onPostClick lambda
-                        )
-                    }
+                // Display all posts from the 'allPosts' list
+                items(allPosts, key = { it.id }) { post ->
+                    RunPostCard(
+                        post = post,
+                        user = userProfiles[post.userId], // Access user profile by post.userId
+                        dateFormat = dateFormat,
+                        decimalFormat = decimalFormat,
+                        onLikeClick = { postId, isLiked -> feedViewModel.toggleLike(postId, isLiked) },
+                        isLiked = userLikedPostIds.contains(post.id), // Pass actual liked status
+                        onUserClick = onUserClick, // Pass the onUserClick lambda
+                        onPostClick = onPostClick // Pass the onPostClick lambda
+                    )
                 }
             }
         }

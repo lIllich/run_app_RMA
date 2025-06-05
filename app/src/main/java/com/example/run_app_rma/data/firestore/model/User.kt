@@ -1,11 +1,11 @@
 package com.example.run_app_rma.data.firestore.model
 
-import com.google.firebase.firestore.DocumentId
 import com.google.firebase.firestore.ServerTimestamp
 import java.util.Date
 
 data class User(
-    @DocumentId val id: String = "",
+    // Removed @DocumentId annotation
+    val id: String = "",    // firebase document id for the user, explicitly stored as a field
     val displayName: String = "",
     val lowercaseDisplayName: String = "", // Add this new field
     val email: String = "",
