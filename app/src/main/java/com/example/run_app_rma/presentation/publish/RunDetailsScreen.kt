@@ -4,6 +4,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -17,13 +19,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.run_app_rma.data.db.AppDatabase
 import com.example.run_app_rma.domain.model.LocationDataEntity
-import com.example.run_app_rma.domain.model.RunEntity
 import com.example.run_app_rma.data.firestore.repository.RunPostRepository
 import com.example.run_app_rma.data.firestore.repository.UserRepository
 import com.google.firebase.auth.FirebaseAuth
-import com.google.android.gms.maps.model.CameraPosition
-import com.google.android.gms.maps.model.LatLng
-import com.google.maps.android.compose.*
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -37,7 +35,8 @@ fun RunDetailsScreen(
     runPostRepository: RunPostRepository,
     userRepository: UserRepository,
     firebaseAuth: FirebaseAuth,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onViewMapClick: (Long) -> Unit
 ) {
     val runDetailsViewModel: RunDetailsViewModel = viewModel(
         factory = RunDetailsViewModel.Factory(
@@ -65,11 +64,13 @@ fun RunDetailsScreen(
             TopAppBar(title = { Text("Detalji Trčanja") })
         }
     ) { innerPadding ->
+        val scrollState = rememberScrollState()
         Column(
             modifier = modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(16.dp),
+                .padding(16.dp)
+                .verticalScroll(scrollState),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             if (isLoading) {
@@ -114,12 +115,17 @@ fun RunDetailsScreen(
                     Spacer(modifier = Modifier.height(16.dp))
                 }
 
-                // map display
+                // Button to open fullscreen map
                 if (locationData.isNotEmpty()) {
-                    Text("Ruta na karti", style = MaterialTheme.typography.titleSmall)
-                    RunRouteMap(locationData = locationData)
+                    Button(
+                        onClick = { onViewMapClick(runId) }, // Pass runId to the navigation lambda
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Prikaz karte preko cijelog zaslona")
+                    }
                     Spacer(modifier = Modifier.height(16.dp))
                 }
+
 
                 // kilometer splits
                 val kilometerSplits = runDetailsViewModel.getKilometerSplits(locationData)
@@ -128,7 +134,7 @@ fun RunDetailsScreen(
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(max = 200.dp) // Limit height for splits list
+                            .heightIn(max = 300.dp) // Limit height for splits list
                     ) {
                         itemsIndexed(kilometerSplits) { index, split ->
                             Text("Kilometar ${index + 1}: Vrijeme: ${split.first}, Tempo: ${split.second}")
@@ -197,40 +203,5 @@ fun ElevationGraph(locationData: List<LocationDataEntity>) {
             color = Color.Blue,
             style = Stroke(width = 3f)
         )
-    }
-}
-
-@Composable
-fun RunRouteMap(locationData: List<LocationDataEntity>) {
-    if (locationData.isEmpty()) return
-
-    val pathPoints = locationData.map { LatLng(it.lat, it.lon) }
-
-    val cameraPositionState = rememberCameraPositionState {
-        position = CameraPosition.fromLatLngZoom(pathPoints.first(), 15f)
-    }
-
-    GoogleMap(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(300.dp),
-        cameraPositionState = cameraPositionState
-    ) {
-        Polyline(
-            points = pathPoints,
-            color = Color.Red,
-            width = 8f
-        )
-        // add markers for start and end
-        Marker(
-            state = rememberMarkerState(position = pathPoints.first()),
-            title = "Start"
-        )
-        if (pathPoints.size > 1) {
-            Marker(
-                state = rememberMarkerState(position = pathPoints.last()),
-                title = "End"
-            )
-        }
     }
 }

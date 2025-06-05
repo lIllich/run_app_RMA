@@ -3,7 +3,6 @@ package com.example.run_app_rma.presentation.publish
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
-import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -266,21 +265,27 @@ class RunDetailsViewModel(
         private val runId: Long,
         private val runDao: RunDao,
         private val locationDao: LocationDao,
-        private val runPostRepository: RunPostRepository,
-        private val userRepository: UserRepository,
-        private val firebaseAuth: FirebaseAuth
+        private val runPostRepository: RunPostRepository?,
+        private val userRepository: UserRepository?,
+        private val firebaseAuth: FirebaseAuth?
     ) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(RunDetailsViewModel::class.java)) {
-                @Suppress("UNCHECKED_CAST")
-                return RunDetailsViewModel(
-                    runId,
-                    runDao,
-                    locationDao,
-                    runPostRepository,
-                    userRepository,
-                    firebaseAuth
-                ) as T
+                // Ensure all nullable parameters are non-null before constructing the ViewModel
+                if (runPostRepository != null && userRepository != null && firebaseAuth != null) {
+                    @Suppress("UNCHECKED_CAST")
+                    return RunDetailsViewModel(
+                        runId,
+                        runDao,
+                        locationDao,
+                        runPostRepository,
+                        userRepository,
+                        firebaseAuth
+                    ) as T
+                } else {
+                    // Throw an informative exception if any required dependency is missing
+                    throw IllegalArgumentException("Missing required repositories or FirebaseAuth for RunDetailsViewModel. Check if runPostRepository, userRepository, or firebaseAuth are null.")
+                }
             }
             throw IllegalArgumentException("Unknown ViewModel class")
         }

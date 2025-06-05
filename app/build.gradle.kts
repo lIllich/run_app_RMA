@@ -87,6 +87,9 @@ dependencies {
 
     implementation(libs.maps.compose)
     implementation(libs.play.services.maps)
+    implementation(libs.ui)
+    implementation(libs.material3)
+    implementation(libs.androidx.compose.ui.ui.tooling.preview)
 
     implementation(libs.gson)
     implementation(libs.accompanist.pager)

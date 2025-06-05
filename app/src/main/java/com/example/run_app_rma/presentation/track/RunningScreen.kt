@@ -16,6 +16,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -27,6 +28,10 @@ fun RunningScreen(
     val locationText by runViewModel.liveLocationData
     val accelerometerText by runViewModel.liveAccelerometerData
     val gyroscopeText by runViewModel.liveGyroscopeData
+
+    // debug
+    val context = LocalContext.current
+    //***
 
     Column(
         modifier = modifier
@@ -57,5 +62,16 @@ fun RunningScreen(
                 Text("Stop run")
             }
         }
+
+        // debug
+        Button(
+            onClick = { runViewModel.exportDatabase(context) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 16.dp)
+        ) {
+            Text("Export DB")
+        }
+        //***
     }
 }

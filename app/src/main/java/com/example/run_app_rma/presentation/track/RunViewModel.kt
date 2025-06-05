@@ -1,6 +1,8 @@
 package com.example.run_app_rma.presentation.track
 
+import android.content.Context
 import android.location.Location
+import android.util.Log
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
@@ -19,6 +21,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import java.io.File
 
 class RunViewModel(
     private val runDao: RunDao,
@@ -183,4 +186,24 @@ class RunViewModel(
             throw IllegalArgumentException("Unknown ViewModel class")
         }
     }
+
+    // debug
+    fun exportDatabase(context: Context) {
+        val dbName = "run_app_database"
+        val dbPath = context.getDatabasePath(dbName)
+        val destDir = context.getExternalFilesDir(null)
+        val destDb = File(destDir, dbName)
+        val walFile = File(dbPath.absolutePath + "-wal")
+        val shmFile = File(dbPath.absolutePath + "-shm")
+
+        try {
+            dbPath.copyTo(destDb, overwrite = true)
+            walFile.copyTo(File(destDir, walFile.name), overwrite = true)
+            shmFile.copyTo(File(destDir, shmFile.name), overwrite = true)
+            Log.d("DB_EXPORT", "Exported DB to ${destDb.absolutePath}")
+        } catch (e: Exception) {
+            Log.e("DB_EXPORT", "Error exporting DB", e)
+        }
+    }
+    //***
 }
