@@ -3,6 +3,7 @@ package com.example.run_app_rma.presentation.runpost
 import androidx.compose.foundation.ExperimentalFoundationApi // New import for HorizontalPager
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable // Import combinedClickable for long press
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -22,6 +23,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Comment
 import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.Delete // Import for delete icon
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.LocationOn
@@ -32,6 +34,8 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider // Added import for Divider
+import androidx.compose.material3.DropdownMenu // Import for dropdown menu
+import androidx.compose.material3.DropdownMenuItem // Import for dropdown menu item
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -45,7 +49,10 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue // Import for mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -64,6 +71,8 @@ import com.example.run_app_rma.data.firestore.model.User
 import com.example.run_app_rma.presentation.common.UserCard // Import UserCard
 import androidx.compose.foundation.pager.HorizontalPager // Changed import
 import androidx.compose.foundation.pager.rememberPagerState // Changed import
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material3.HorizontalDivider
 import kotlinx.coroutines.launch
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
@@ -83,25 +92,38 @@ fun RunPostScreen(
 ) {
     val runPost by runPostViewModel.runPost.collectAsState()
     val postUser by runPostViewModel.postUser.collectAsState()
-    val isLoading by runPostViewModel.isLoading.collectAsState()
+    val isInitialLoading: Boolean by runPostViewModel.isInitialLoading.collectAsState()
+    val isLoadingAction: Boolean by runPostViewModel.isLoadingAction.collectAsState()
     val errorMessage by runPostViewModel.errorMessage.collectAsState()
     val userLikedPostIds by runPostViewModel.userLikedPostIds.collectAsState()
     val likedUsers by runPostViewModel.likedUsers.collectAsState()
     val comments by runPostViewModel.comments.collectAsState()
     val commentUsers by runPostViewModel.commentUsers.collectAsState()
     val commentInput by runPostViewModel.commentInput.collectAsState()
+    val currentUserId by runPostViewModel.currentUserId.collectAsState() // Observe current user ID
 
     val dateFormat = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
     val decimalFormat = DecimalFormat("#.##")
 
-    // The pagerState will be used for tabs
     val pagerState = rememberPagerState(initialPage = 0, pageCount = { 2 })
     val scope = rememberCoroutineScope()
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Objava Trčanja") },
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Objava Trčanja")
+                        if (isInitialLoading) {
+                            Spacer(modifier = Modifier.width(8.dp))
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Natrag")
@@ -118,21 +140,15 @@ fun RunPostScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Top
         ) {
-            if (isLoading) {
-                CircularProgressIndicator(modifier = Modifier.padding(16.dp))
-                Text("Učitavanje objave...")
-            } else if (errorMessage != null) {
+            if (errorMessage != null) {
                 Text("Greška: $errorMessage", color = MaterialTheme.colorScheme.error)
                 Button(onClick = { runPost?.id?.let { runPostViewModel.fetchRunPostAndRelatedData(it) } }) {
                     Text("Pokušaj ponovo")
                 }
             } else if (runPost != null) {
                 val post = runPost!!
-
-                // Capture postUser into a local immutable variable for consistent null safety
                 val currentPostUser = postUser
 
-                // User Header (Profile Picture, Display Name)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
@@ -168,7 +184,6 @@ fun RunPostScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Run Details
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceAround
@@ -214,7 +229,6 @@ fun RunPostScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Caption
                 if (post.caption.isNotEmpty()) {
                     Text(
                         text = post.caption,
@@ -224,11 +238,9 @@ fun RunPostScreen(
                     Spacer(modifier = Modifier.height(16.dp))
                 }
 
-                // Divider after caption
-                Divider(modifier = Modifier.fillMaxWidth())
-                Spacer(modifier = Modifier.height(12.dp)) // Small gap after the divider
+                HorizontalDivider(modifier = Modifier.fillMaxWidth())
+                Spacer(modifier = Modifier.height(12.dp))
 
-                // "Sviđa li vam se objava?" text and Like Button
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceAround,
@@ -238,32 +250,38 @@ fun RunPostScreen(
                         text = "Sviđa li vam se objava?",
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.weight(1f),
-                        textAlign = TextAlign.Center // Center the text
+                        textAlign = TextAlign.Center
                     )
 
                     val isLiked = userLikedPostIds.contains(post.id)
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
-                            .clickable { runPostViewModel.toggleLike(post.id, isLiked) }
+                            .clickable(enabled = !isLoadingAction) { runPostViewModel.toggleLike(post.id, isLiked) }
                             .weight(1f)
                             .padding(4.dp),
                         horizontalArrangement = Arrangement.Center
                     ) {
-                        Icon(
-                            imageVector = if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                            contentDescription = "Like",
-                            tint = if (isLiked) Color.Red else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(24.dp)
-                        )
+                        if (isLoadingAction) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Icon(
+                                imageVector = if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                contentDescription = "Like",
+                                tint = if (isLiked) Color.Red else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
                         Spacer(modifier = Modifier.width(4.dp))
                         Text("${post.likesCount}", style = MaterialTheme.typography.bodyMedium)
                     }
                 }
 
-                Spacer(modifier = Modifier.height(8.dp)) // Reduced gap
+                Spacer(modifier = Modifier.height(8.dp))
 
-                // Tabs for Comments and Likes (swapped order)
                 TabRow(
                     selectedTabIndex = pagerState.currentPage,
                     modifier = Modifier.fillMaxWidth()
@@ -271,12 +289,12 @@ fun RunPostScreen(
                     Tab(
                         selected = pagerState.currentPage == 0,
                         onClick = { scope.launch { pagerState.animateScrollToPage(0) } },
-                        text = { Text("Komentari (${comments.size})") } // Comments tab first
+                        text = { Text("Komentari (${comments.size})") }
                     )
                     Tab(
                         selected = pagerState.currentPage == 1,
                         onClick = { scope.launch { pagerState.animateScrollToPage(1) } },
-                        text = { Text("Sviđa se (${likedUsers.size})") } // Likes tab second
+                        text = { Text("Sviđa se (${likedUsers.size})") }
                     )
                 }
 
@@ -284,17 +302,15 @@ fun RunPostScreen(
                     state = pagerState,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f) // Take remaining height
+                        .weight(1f)
                 ) { page ->
                     when (page) {
                         0 -> {
-                            // Komentari Tab Content (now at page 0)
                             Column(
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .padding(horizontal = 16.dp, vertical = 8.dp)
                             ) {
-                                // Comment Input Field
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     verticalAlignment = Alignment.CenterVertically,
@@ -309,15 +325,14 @@ fun RunPostScreen(
                                     Spacer(modifier = Modifier.width(8.dp))
                                     IconButton(
                                         onClick = { runPostViewModel.addComment() },
-                                        enabled = commentInput.isNotBlank()
+                                        enabled = commentInput.isNotBlank() && !isLoadingAction
                                     ) {
-                                        Icon(Icons.Default.Send, contentDescription = "Pošalji komentar")
+                                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Pošalji komentar")
                                     }
                                 }
 
                                 Spacer(modifier = Modifier.height(16.dp))
 
-                                // List of Comments
                                 if (comments.isEmpty()) {
                                     Column(
                                         modifier = Modifier.fillMaxSize(),
@@ -337,7 +352,10 @@ fun RunPostScreen(
                                                 comment = comment,
                                                 commenter = commenter,
                                                 dateFormat = dateFormat,
-                                                onUserClick = onUserClick
+                                                currentUserId = currentUserId, // Pass current user ID
+                                                postOwnerId = post.userId, // Pass post owner ID
+                                                onUserClick = onUserClick,
+                                                onDeleteComment = { commentId -> runPostViewModel.deleteComment(commentId) } // Pass delete lambda
                                             )
                                         }
                                     }
@@ -345,7 +363,6 @@ fun RunPostScreen(
                             }
                         }
                         1 -> {
-                            // Lajkovi Tab Content (now at page 1)
                             if (likedUsers.isEmpty()) {
                                 Column(
                                     modifier = Modifier.fillMaxSize().padding(16.dp),
@@ -363,8 +380,8 @@ fun RunPostScreen(
                                     items(likedUsers, key = { it.id }) { user ->
                                         UserCard(
                                             user = user,
-                                            onClick = { userId -> onUserClick(userId) }, // Navigate to user profile
-                                            showFollowButton = false // No follow button in this context
+                                            onClick = { userId -> onUserClick(userId) },
+                                            showFollowButton = false
                                         )
                                     }
                                 }
@@ -379,15 +396,33 @@ fun RunPostScreen(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class) // For combinedClickable
 @Composable
 fun CommentItem(
     comment: Comment,
     commenter: User?,
     dateFormat: SimpleDateFormat,
-    onUserClick: (String) -> Unit
+    currentUserId: String?, // New parameter for current user ID
+    postOwnerId: String?, // New parameter for post owner ID
+    onUserClick: (String) -> Unit,
+    onDeleteComment: (String) -> Unit // New parameter for delete callback
 ) {
+    var showMenu by remember { mutableStateOf(false) } // State to control dropdown menu visibility
+
+    val canDeleteComment = currentUserId != null &&
+            (currentUserId == comment.userId || currentUserId == postOwnerId)
+
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .combinedClickable( // Use combinedClickable for long press
+                onClick = { /* Regular click action if any, or leave empty */ },
+                onLongClick = {
+                    if (canDeleteComment) {
+                        showMenu = true // Show menu on long press if user can delete
+                    }
+                }
+            ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
@@ -431,6 +466,25 @@ fun CommentItem(
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.fillMaxWidth()
             )
+
+            // Dropdown menu for delete option
+            DropdownMenu(
+                expanded = showMenu,
+                onDismissRequest = { showMenu = false }
+            ) {
+                if (canDeleteComment) {
+                    DropdownMenuItem(
+                        text = { Text("Obriši komentar") },
+                        onClick = {
+                            onDeleteComment(comment.id)
+                            showMenu = false // Dismiss menu after action
+                        },
+                        leadingIcon = {
+                            Icon(Icons.Default.Delete, contentDescription = "Obriši")
+                        }
+                    )
+                }
+            }
         }
     }
 }

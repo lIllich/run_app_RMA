@@ -97,7 +97,8 @@ class ProfileViewModel(
                 }
 
                 // New: Fetch post count
-                val userPostsResult = runPostRepository.getRunPostForUser(userId)
+                // Corrected: Use getRunPostsByUsers which takes a list of user IDs
+                val userPostsResult = runPostRepository.getRunPostsByUsers(listOf(userId))
                 if (userPostsResult.isSuccess) {
                     _postCount.value = userPostsResult.getOrNull()?.size ?: 0
                 } else {

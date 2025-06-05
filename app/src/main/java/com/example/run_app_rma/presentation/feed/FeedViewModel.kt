@@ -30,8 +30,14 @@ class FeedViewModel(
     private val _allPosts = mutableStateListOf<RunPost>()
     val allPosts: List<RunPost> = _allPosts // Expose a single list for all posts
 
-    private val _isLoading = MutableStateFlow(false)
-    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+    // Renamed _isLoading to _isInitialLoading for screen-level loading
+    private val _isInitialLoading = MutableStateFlow(true) // Start as true for initial load
+    val isInitialLoading: StateFlow<Boolean> = _isInitialLoading.asStateFlow()
+
+    // _isLoading can be used for individual action (like/comment) if needed, but not for global indicator
+    private val _isLoadingAction = MutableStateFlow(false) // For specific actions like liking
+    val isLoadingAction: StateFlow<Boolean> = _isLoadingAction.asStateFlow()
+
 
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
@@ -56,12 +62,13 @@ class FeedViewModel(
         if (currentUserId == null) {
             _errorMessage.value = "Korisnik nije prijavljen."
             Log.d(TAG, "loadFeedPosts called but currentUserId is null. User not authenticated.")
+            _isInitialLoading.value = false // Ensure loading is false if user not logged in
             return
         }
 
         Log.d(TAG, "loadFeedPosts called for userId: $currentUserId")
 
-        _isLoading.value = true
+        _isInitialLoading.value = true // Set initial loading to true
         _errorMessage.value = null
         viewModelScope.launch {
             try {
@@ -78,7 +85,7 @@ class FeedViewModel(
                         _userProfiles.value = emptyMap()
                         _userLikedPostIds.value = emptySet()
                         _errorMessage.value = "Ne pratite nijednog korisnika. Pratite nekoga da vidite objave."
-                        _isLoading.value = false
+                        _isInitialLoading.value = false // Ensure initial loading is false
                         return@launch // Exit early if not following anyone
                     }
 
@@ -126,8 +133,8 @@ class FeedViewModel(
                 _errorMessage.value = "Došlo je do greške: ${e.message}"
                 Log.e(TAG, "Unexpected error in loadFeedPosts: ${e.message}", e)
             } finally {
-                _isLoading.value = false
-                Log.d(TAG, "loadFeedPosts finished. isLoading set to false.")
+                _isInitialLoading.value = false // Set initial loading to false after completion/error
+                Log.d(TAG, "loadFeedPosts finished. isInitialLoading set to false.")
             }
         }
     }
@@ -158,8 +165,9 @@ class FeedViewModel(
             return
         }
 
+        // _isLoadingAction.value = true // Uncomment if you want localized loading for liking
+
         viewModelScope.launch {
-            _isLoading.value = true // Set loading state for like operation
             val result = if (isCurrentlyLiked) {
                 runPostRepository.unlikePost(postId, currentUserId)
             } else {
@@ -167,14 +175,15 @@ class FeedViewModel(
             }
 
             result.onSuccess {
-                Log.d(TAG, "Like/Unlike successful for post $postId. Reloading feed.")
+                Log.d(TAG, "Like/Unlike successful for post $postId. Refreshing data.")
                 // Refresh posts to reflect the like/unlike status and re-categorize
-                loadFeedPosts() // This will set isLoading back to false when done
+                loadFeedPosts() // This will also update the liked status for the specific post
             }.onFailure { e ->
                 _errorMessage.value = "Greška pri lajkanju objave: ${e.message}"
                 Log.e(TAG, "Error liking/unliking post $postId: ${e.message}", e)
-                _isLoading.value = false // Reset loading state on failure
             }
+            // _isLoadingAction.value = false // Uncomment if you want localized loading for liking
+
         }
     }
 

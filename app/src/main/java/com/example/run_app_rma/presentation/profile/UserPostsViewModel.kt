@@ -32,8 +32,11 @@ class UserPostsViewModel(
     private val _userLikedPostIds = MutableStateFlow<Set<String>>(emptySet())
     val userLikedPostIds: StateFlow<Set<String>> = _userLikedPostIds.asStateFlow()
 
-    private val _isLoading = MutableStateFlow(false)
+    private val _isLoading = MutableStateFlow(false) // General screen loading
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    private val _isLoadingAction = MutableStateFlow(false) // Specific action loading (e.g., like/unlike)
+    val isLoadingAction: StateFlow<Boolean> = _isLoadingAction.asStateFlow()
 
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
@@ -65,7 +68,8 @@ class UserPostsViewModel(
         _errorMessage.value = null
         viewModelScope.launch {
             try {
-                val result = runPostRepository.getRunPostForUser(userId)
+                // Corrected: Use getRunPostsByUsers which takes a list of user IDs
+                val result = runPostRepository.getRunPostsByUsers(listOf(userId))
                 if (result.isSuccess) {
                     _userPosts.value = result.getOrNull()?.sortedByDescending { it.timestamp } ?: emptyList()
                     Log.d(TAG, "Fetched ${_userPosts.value.size} posts for user $userId")
@@ -117,24 +121,49 @@ class UserPostsViewModel(
             Log.w(TAG, "toggleLike called but currentUserId is null.")
             return
         }
+        Log.d(TAG, "Toggling like for post $postId by user $currentUserId. Currently liked: $isCurrentlyLiked")
+
+        _isLoadingAction.value = true // Set action loading to true
+        _errorMessage.value = null // Clear any previous error messages
+
+        // Optimistic update: Immediately reflect the new like status in the UI
+        val previousLikedState = _userLikedPostIds.value
+        _userLikedPostIds.value = if (isCurrentlyLiked) {
+            _userLikedPostIds.value.minus(postId) // Remove postId from set
+        } else {
+            _userLikedPostIds.value.plus(postId) // Add postId to set
+        }
+        Log.d(TAG, "Optimistically updated userLikedPostIds: ${_userLikedPostIds.value}. Icon should change.")
 
         viewModelScope.launch {
-            _isLoading.value = true
-            val result = if (isCurrentlyLiked) {
-                runPostRepository.unlikePost(postId, currentUserId)
-            } else {
-                runPostRepository.likePost(postId, currentUserId)
-            }
+            try {
+                val result = if (isCurrentlyLiked) {
+                    runPostRepository.unlikePost(postId, currentUserId)
+                } else {
+                    runPostRepository.likePost(postId, currentUserId)
+                }
 
-            result.onSuccess {
-                Log.d(TAG, "Like/Unlike successful for post $postId. Re-fetching posts and likes.")
-                fetchUserPosts() // Re-fetch posts for the viewed user
-                fetchUserLikedPosts(currentUserId) // Re-fetch current user's likes
-            }.onFailure { e ->
-                _errorMessage.value = "Greška pri lajkanju objave: ${e.message}"
-                Log.e(TAG, "Error liking/unliking post $postId: ${e.message}", e)
+                result.onSuccess {
+                    Log.d(TAG, "Like/Unlike successful for post $postId. Re-fetching posts and likes for confirmation.")
+                    // Re-fetch posts for the viewed user to get updated like count
+                    fetchUserPosts()
+                    // Re-fetch current user's likes to ensure _userLikedPostIds is in sync with DB
+                    fetchUserLikedPosts(currentUserId)
+                }.onFailure { e ->
+                    // Revert optimistic update on failure
+                    _userLikedPostIds.value = previousLikedState
+                    _errorMessage.value = e.message ?: "Greška pri lajkanju/otlajkavanju objave."
+                    Log.e(TAG, "Error liking/unliking post $postId: ${e.message}", e)
+                }
+            } catch (e: Exception) {
+                // Revert optimistic update on unexpected error
+                _userLikedPostIds.value = previousLikedState
+                _errorMessage.value = e.message ?: "Došlo je do neočekivane greške pri lajkanju."
+                Log.e(TAG, "Unexpected error in toggleLike", e)
+            } finally {
+                _isLoadingAction.value = false // Hide action loading
+                Log.d(TAG, "toggleLike operation finished. isLoadingAction: ${_isLoadingAction.value}")
             }
-            _isLoading.value = false
         }
     }
 

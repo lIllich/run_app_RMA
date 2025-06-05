@@ -9,6 +9,7 @@ import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import kotlinx.coroutines.tasks.await
+import java.util.Date
 
 class RunPostRepository(private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()) {
 
@@ -32,71 +33,105 @@ class RunPostRepository(private val firestore: FirebaseFirestore = FirebaseFires
 
     suspend fun getRunPost(postId: String): Result<RunPost> {
         return try {
-            Log.d(TAG, "Fetching RunPost with ID: $postId")
             val document = postsCollection.document(postId).get().await()
             val post = document.toObject(RunPost::class.java)
-
-            if(post != null) {
-                Log.d(TAG, "Successfully fetched RunPost: ${post.id}")
+            if (post != null) {
+                Log.d(TAG, "Fetched RunPost: $post")
                 Result.success(post)
             } else {
-                Log.w(TAG, "Run post not found for ID: $postId")
-                Result.failure(NoSuchElementException("Run post not found for ID: $postId"))
+                Log.d(TAG, "RunPost with ID $postId not found.")
+                Result.failure(NoSuchElementException("Run post not found."))
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error fetching RunPost with ID: $postId", e)
+            Log.e(TAG, "Error fetching RunPost with ID $postId", e)
             Result.failure(e)
         }
     }
 
-    suspend fun getRunPostForUser(userId: String): Result<List<RunPost>> {
-        return try {
-            Log.d(TAG, "Fetching RunPosts for User ID: $userId")
-            val posts = postsCollection
-                .whereEqualTo("userId", userId)
-                .orderBy("timestamp", Query.Direction.DESCENDING)
-                .get()
-                .await()
-                .toObjects(RunPost::class.java)
-            Log.d(TAG, "Fetched ${posts.size} RunPosts for user $userId")
-            Result.success(posts)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error fetching RunPosts for user $userId", e)
-            Result.failure(e)
-        }
-    }
-
+    // New: Get all run posts by a list of user IDs
     suspend fun getRunPostsByUsers(userIds: List<String>): Result<List<RunPost>> {
         if (userIds.isEmpty()) {
-            Log.d(TAG, "getRunPostsByUsers called with empty userIds list.")
+            Log.d(TAG, "getRunPostsByUsers called with empty userIds list, returning empty list.")
             return Result.success(emptyList())
         }
         return try {
-            Log.d(TAG, "Fetching RunPosts for user IDs: $userIds")
+            // Firestore 'whereIn' clause has a limit of 10 values.
+            // If userIds is larger, this query will fail.
+            // For more than 10, batch queries are needed or redesign.
+            // Assuming userIds.size <= 10 for simplicity for now.
             val posts = postsCollection
                 .whereIn("userId", userIds)
-                .orderBy("timestamp", Query.Direction.DESCENDING)
                 .get()
                 .await()
                 .toObjects(RunPost::class.java)
-            Log.d(TAG, "Fetched ${posts.size} RunPosts for given user IDs.")
+            Log.d(TAG, "Fetched ${posts.size} posts for user IDs: $userIds")
             Result.success(posts)
         } catch (e: Exception) {
-            Log.e(TAG, "Error fetching RunPosts by users", e)
+            Log.e(TAG, "Error fetching posts for user IDs $userIds", e)
             Result.failure(e)
         }
     }
 
-    // New: Get all likes for a specific post
+    suspend fun likePost(postId: String, userId: String): Result<Unit> {
+        return try {
+            // Check if the user has already liked this post
+            val existingLikeQuery = likesCollection
+                .whereEqualTo("postId", postId)
+                .whereEqualTo("userId", userId)
+                .limit(1)
+                .get()
+                .await()
+
+            if (existingLikeQuery.isEmpty) {
+                // If no existing like, add a new one and increment count
+                val like = Like(postId = postId, userId = userId, timestamp = Date())
+                likesCollection.add(like).await()
+                postsCollection.document(postId).update("likesCount", FieldValue.increment(1)).await()
+                Log.d(TAG, "User $userId liked post $postId. Like count incremented in DB.")
+                Result.success(Unit)
+            } else {
+                Log.d(TAG, "User $userId already liked post $postId. No action taken in DB.")
+                Result.success(Unit) // Already liked, no error
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error liking post $postId by user $userId: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun unlikePost(postId: String, userId: String): Result<Unit> {
+        return try {
+            val querySnapshot = likesCollection
+                .whereEqualTo("postId", postId)
+                .whereEqualTo("userId", userId)
+                .limit(1) // Limit to 1, as there should only be one like per user per post
+                .get()
+                .await()
+
+            if (!querySnapshot.isEmpty) {
+                // If a like document exists, delete it and decrement count
+                val document = querySnapshot.documents.first() // Get the first (and only) matching document
+                document.reference.delete().await()
+                postsCollection.document(postId).update("likesCount", FieldValue.increment(-1)).await()
+                Log.d(TAG, "User $userId unliked post $postId. Like count decremented in DB.")
+            } else {
+                Log.d(TAG, "User $userId had not liked post $postId. No action taken in DB (no like document found).")
+            }
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error unliking post $postId by user $userId: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+
     suspend fun getLikesForPost(postId: String): Result<List<Like>> {
         return try {
-            Log.d(TAG, "Fetching Likes for Post ID: $postId")
             val likes = likesCollection
                 .whereEqualTo("postId", postId)
                 .get()
                 .await()
                 .toObjects(Like::class.java)
-            Log.d(TAG, "Fetched ${likes.size} Likes for post $postId")
+            Log.d(TAG, "Fetched ${likes.size} likes for post $postId")
             Result.success(likes)
         } catch (e: Exception) {
             Log.e(TAG, "Error fetching likes for post $postId", e)
@@ -104,106 +139,49 @@ class RunPostRepository(private val firestore: FirebaseFirestore = FirebaseFires
         }
     }
 
-
     suspend fun getLikesByUser(userId: String): Result<List<Like>> {
         return try {
-            Log.d(TAG, "Fetching Likes by User ID: $userId")
             val likes = likesCollection
                 .whereEqualTo("userId", userId)
                 .get()
                 .await()
                 .toObjects(Like::class.java)
-            Log.d(TAG, "Fetched ${likes.size} Likes by user $userId")
+            Log.d(TAG, "Fetched ${likes.size} likes for user $userId")
             Result.success(likes)
         } catch (e: Exception) {
-            Log.e(TAG, "Error fetching likes by user $userId", e)
-            Result.failure(e)
-        }
-    }
-
-    suspend fun getCommentsByUser(userId: String): Result<List<Comment>> {
-        return try {
-            Log.d(TAG, "Fetching Comments by User ID: $userId")
-            val comments = commentsCollection
-                .whereEqualTo("userId", userId)
-                .get()
-                .await()
-                .toObjects(Comment::class.java)
-            Log.d(TAG, "Fetched ${comments.size} Comments by user $userId")
-            Result.success(comments)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error fetching comments by user $userId", e)
-            Result.failure(e)
-        }
-    }
-
-    suspend fun likePost(postId: String, userId: String): Result<Unit> {
-        return try {
-            Log.d(TAG, "Liking post $postId by user $userId")
-            likesCollection.add(Like(postId = postId, userId = userId)).await()
-            postsCollection.document(postId).update("likesCount", FieldValue.increment(1)).await()
-            Log.d(TAG, "Post $postId liked successfully by user $userId")
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error liking post $postId by user $userId", e)
-            Result.failure(e)
-        }
-    }
-
-    suspend fun unlikePost(postId: String, userId: String): Result<Unit> {
-        return try {
-            Log.d(TAG, "Unliking post $postId by user $userId")
-            likesCollection
-                .whereEqualTo("postId", postId)
-                .whereEqualTo("userId", userId)
-                .get()
-                .await()
-                .documents
-                .forEach { it.reference.delete().await() }
-
-            postsCollection.document(postId).update("likesCount", FieldValue.increment(-1)).await()
-            Log.d(TAG, "Post $postId unliked successfully by user $userId")
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error unliking post $postId by user $userId", e)
-            Result.failure(e)
-        }
-    }
-
-    suspend fun hasUserLikedPost(postId: String, userId: String): Result<Boolean> {
-        return try {
-            Log.d(TAG, "Checking if user $userId liked post $postId")
-            val snapshot = likesCollection
-                .whereEqualTo("postId", postId)
-                .whereEqualTo("userId", userId)
-                .limit(1)
-                .get()
-                .await()
-            val hasLiked = !snapshot.isEmpty
-            Log.d(TAG, "User $userId has liked post $postId: $hasLiked")
-            Result.success(hasLiked)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error checking if user $userId liked post $postId", e)
+            Log.e(TAG, "Error fetching likes for user $userId", e)
             Result.failure(e)
         }
     }
 
     suspend fun addComment(comment: Comment): Result<Unit> {
         return try {
-            Log.d(TAG, "Adding comment to post ${comment.postId} by user ${comment.userId}")
             commentsCollection.add(comment).await()
             postsCollection.document(comment.postId).update("commentsCount", FieldValue.increment(1)).await()
-            Log.d(TAG, "Comment added and commentsCount incremented for post ${comment.postId}")
+            Log.d(TAG, "Added comment for post ${comment.postId}. Comment count incremented.")
             Result.success(Unit)
         } catch (e: Exception) {
-            Log.e(TAG, "Error adding comment to post ${comment.postId}", e)
+            Log.e(TAG, "Error adding comment", e)
+            Result.failure(e)
+        }
+    }
+
+    // This method is now properly defined
+    suspend fun deleteComment(commentId: String, postId: String): Result<Unit> {
+        return try {
+            val commentDocRef = commentsCollection.document(commentId)
+            commentDocRef.delete().await()
+            postsCollection.document(postId).update("commentsCount", FieldValue.increment(-1)).await()
+            Log.d(TAG, "Comment $commentId deleted for post $postId. Comment count decremented.")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error deleting comment $commentId for post $postId", e)
             Result.failure(e)
         }
     }
 
     suspend fun getCommentsForPost(postId: String): Result<List<Comment>> {
         return try {
-            Log.d(TAG, "Fetching comments for post ID: $postId")
             val comments = commentsCollection
                 .whereEqualTo("postId", postId)
                 .orderBy("timestamp", Query.Direction.ASCENDING)
@@ -243,7 +221,7 @@ class RunPostRepository(private val firestore: FirebaseFirestore = FirebaseFires
             Log.d(TAG, "Fetched ${users.size} users for given IDs: ${users.map { it.displayName }}")
             Result.success(users)
         } catch (e: Exception) {
-            Log.e(TAG, "Error fetching users by IDs: ${userIds.joinToString()}", e)
+            Log.e(TAG, "Error fetching users by IDs $userIds", e)
             Result.failure(e)
         }
     }

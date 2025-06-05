@@ -109,7 +109,8 @@ class OtherUserProfileViewModel(
                 }
 
                 // Fetch user's posts
-                val postsResult = runPostRepository.getRunPostForUser(userId)
+                // Corrected: Use getRunPostsByUsers which takes a list of user IDs
+                val postsResult = runPostRepository.getRunPostsByUsers(listOf(userId))
                 if (postsResult.isSuccess) {
                     _viewedUserPosts.value = postsResult.getOrNull()?.sortedByDescending { it.timestamp } ?: emptyList()
                 } else {
