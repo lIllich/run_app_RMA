@@ -1,3 +1,4 @@
+// MainScreenWithTabs.kt
 package com.example.run_app_rma.presentation.main
 
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -69,7 +70,8 @@ fun MainScreenWithTabs(
     onViewFollowing: (String) -> Unit,
     onViewFollowers: (String) -> Unit,
     onUserClick: (String) -> Unit, // For UserCard clicks in FollowScreen and RunPostCard clicks
-    onPostClick: (String) -> Unit // Added onPostClick parameter
+    onPostClick: (String) -> Unit, // Added onPostClick parameter
+    onRunClick: (Long) -> Unit // Added onRunClick parameter for PublishRunScreen
 ) {
     val pagerState = rememberPagerState(initialPage = TabScreen.FEED.ordinal) { // Set initial page to Feed
         TabScreen.values().size
@@ -157,7 +159,10 @@ fun MainScreenWithTabs(
                     searchUserViewModel = searchUserViewModel, // Renamed from followViewModel
                     onUserClick = onUserClick // Pass the onUserClick lambda
                 )
-                TabScreen.PUBLISH -> PublishRunScreen(publishRunViewModel = publishRunViewModel)
+                TabScreen.PUBLISH -> PublishRunScreen(
+                    publishRunViewModel = publishRunViewModel,
+                    onRunClick = onRunClick // Pass onRunClick to PublishRunScreen
+                )
                 TabScreen.PROFILE -> ProfileScreen(
                     profileViewModel = profileViewModel,
                     onLogout = onLogout,

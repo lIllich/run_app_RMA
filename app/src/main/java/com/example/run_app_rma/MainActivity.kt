@@ -1,3 +1,4 @@
+// MainActivity.kt
 package com.example.run_app_rma
 
 import android.os.Bundle
@@ -32,7 +33,7 @@ import com.example.run_app_rma.data.firestore.repository.RunPostRepository
 import com.example.run_app_rma.presentation.feed.FeedViewModel
 import com.example.run_app_rma.presentation.runpost.RunPostScreen
 import com.example.run_app_rma.presentation.runpost.RunPostViewModel
-import com.example.run_app_rma.presentation.search.SearchUserViewModel // Renamed from FollowViewModel
+import com.example.run_app_rma.presentation.search.SearchUserViewModel
 import com.example.run_app_rma.presentation.profile.EditProfileScreen
 import com.example.run_app_rma.presentation.profile.EditProfileViewModel
 import com.example.run_app_rma.presentation.profile.ProfileScreen
@@ -43,6 +44,8 @@ import com.example.run_app_rma.presentation.profile.UserListViewModel
 import com.example.run_app_rma.presentation.profile.OtherUserProfileScreen
 import com.example.run_app_rma.presentation.profile.OtherUserProfileViewModel
 import com.example.run_app_rma.presentation.publish.PublishRunViewModel
+import com.example.run_app_rma.presentation.publish.RunDetailsScreen
+import com.example.run_app_rma.presentation.publish.RunDetailsViewModel // Import RunDetailsViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
@@ -164,11 +167,14 @@ class MainActivity : ComponentActivity() {
                                 onViewFollowers = { userId ->
                                     navController.navigate("user_list_screen/followers/$userId")
                                 },
-                                onUserClick = { clickedUserId -> // Pass the onUserClick lambda here
+                                onUserClick = { clickedUserId ->
                                     navController.navigate("other_user_profile_screen/$clickedUserId")
                                 },
-                                onPostClick = { postId -> // Pass onPostClick to navigate to RunPostScreen
+                                onPostClick = { postId ->
                                     navController.navigate("run_post_screen/$postId")
+                                },
+                                onRunClick = { runId ->
+                                    navController.navigate("run_details_screen/$runId")
                                 }
                             )
                         }
@@ -203,10 +209,10 @@ class MainActivity : ComponentActivity() {
                                         factory = UserPostsViewModel.Factory
                                     ),
                                     onBack = { navController.popBackStack() },
-                                    onUserClick = { clickedUserId -> // Pass onUserClick to UserPostsScreen
+                                    onUserClick = { clickedUserId ->
                                         navController.navigate("other_user_profile_screen/$clickedUserId")
                                     },
-                                    onPostClick = { postId -> // Pass onPostClick to UserPostsScreen
+                                    onPostClick = { postId ->
                                         navController.navigate("run_post_screen/$postId")
                                     }
                                 )
@@ -259,7 +265,7 @@ class MainActivity : ComponentActivity() {
                                     onViewFollowers = { viewedUserId ->
                                         navController.navigate("user_list_screen/followers/$viewedUserId")
                                     },
-                                    onUserClick = { clickedUserId -> // Pass onUserClick to OtherUserProfileScreen
+                                    onUserClick = { clickedUserId ->
                                         navController.navigate("other_user_profile_screen/$clickedUserId")
                                     }
                                 )
@@ -289,6 +295,21 @@ class MainActivity : ComponentActivity() {
                                 )
                             } else {
                                 Toast.makeText(this@MainActivity, "Post ID missing.", Toast.LENGTH_SHORT).show()
+                                navController.popBackStack()
+                            }
+                        }
+                        composable("run_details_screen/{runId}") { backStackEntry ->
+                            val runId = backStackEntry.arguments?.getString("runId")?.toLongOrNull()
+                            if (runId != null) {
+                                RunDetailsScreen(
+                                    runId = runId,
+                                    appDatabase = appDatabase,
+                                    runPostRepository = runPostRepository,
+                                    userRepository = userRepository,
+                                    firebaseAuth = firebaseAuth
+                                )
+                            } else {
+                                Toast.makeText(this@MainActivity, "Run ID missing.", Toast.LENGTH_SHORT).show()
                                 navController.popBackStack()
                             }
                         }

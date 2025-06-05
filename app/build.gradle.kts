@@ -85,6 +85,9 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose.v270) // Provjeri najnoviju verziju ako je potrebno
     implementation(libs.coil.compose) // Za učitavanje slika s URL-a (profilna slika)
 
+    implementation(libs.maps.compose)
+    implementation(libs.play.services.maps)
+
     implementation(libs.gson)
     implementation(libs.accompanist.pager)
     implementation(libs.accompanist.pager.indicators)

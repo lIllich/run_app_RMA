@@ -4,21 +4,23 @@ activityCompose = "1.10.1"
 activityKtx = "1.10.1"
 agp = "8.9.3"
 coilCompose = "2.2.2"
-composeBom = "2025.05.01"
+composeBom = "2025.06.00"
 coreKtx = "1.16.0"
 espressoCore = "3.6.1"
 firebaseAuthKtx = "23.2.1"
 firebaseBom = "33.14.0"
-firebaseBomVersion = "33.0.0"
+firebaseBomVersion = "33.14.0"
 firebaseFirestoreKtx = "25.1.4"
 gson = "2.10.1"
 junit = "4.13.2"
 junitVersion = "1.2.1"
 kotlin = "2.0.21"
-lifecycleRuntimeKtx = "2.9.0"
-lifecycleViewmodelCompose = "2.9.0"
-lifecycleViewmodelComposeVersion = "2.7.0"
+lifecycleRuntimeKtx = "2.9.1"
+lifecycleViewmodelCompose = "2.9.1"
+lifecycleViewmodelComposeVersion = "2.9.1"
+mapsCompose = "4.3.1"
 playServicesLocation = "21.3.0"
+playServicesMaps = "19.2.0"
 room = "2.7.1"
 roomCompiler = "2.7.1"
 firebaseStorageKtx = "21.0.2"
@@ -56,7 +58,9 @@ firebase-firestore-ktx = { module = "com.google.firebase:firebase-firestore-ktx"
 google-firebase-firestore-ktx = { module = "com.google.firebase:firebase-firestore-ktx" }
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
+maps-compose = { module = "com.google.maps.android:maps-compose", version.ref = "mapsCompose" }
 play-services-location = { module = "com.google.android.gms:play-services-location", version.ref = "playServicesLocation" }
+play-services-maps = { module = "com.google.android.gms:play-services-maps", version.ref = "playServicesMaps" }
 room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
 room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 firebase-storage-ktx = { group = "com.google.firebase", name = "firebase-storage-ktx", version.ref = "firebaseStorageKtx" }

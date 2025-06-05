@@ -6,7 +6,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState // Keep this import if you use other StateFlows
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -22,16 +21,13 @@ import java.util.Date
 @Composable
 fun PublishRunScreen(
     modifier: Modifier = Modifier,
-    publishRunViewModel: PublishRunViewModel = viewModel() // ViewModel will be provided by MainScreenWithTabs
+    publishRunViewModel: PublishRunViewModel = viewModel(), // ViewModel will be provided by MainScreenWithTabs
+    onRunClick: (Long) -> Unit
 ) {
-    // CORRECTED: Directly access localRuns as it's a mutableStateListOf,
-    // which is already observable by Compose.
-    val localRuns = publishRunViewModel.localRuns // No .collectAsState() needed here
+    val localRuns = publishRunViewModel.localRuns
     val isLoading by publishRunViewModel.isLoading
     val errorMessage by publishRunViewModel.errorMessage
     val successMessage by publishRunViewModel.successMessage
-    val selectedRun by publishRunViewModel.selectedRun
-    val caption by publishRunViewModel.caption
 
     val dateFormat = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
     val decimalFormat = DecimalFormat("#.##")
@@ -70,8 +66,7 @@ fun PublishRunScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // CORRECTED: Use .size == 0 to avoid ambiguity
-        if (localRuns.size == 0 && !isLoading) {
+        if (localRuns.isEmpty() && !isLoading) {
             Text("Nema lokalno spremljenih trčanja za objavu.")
         } else {
             Text("Odaberite trčanje za objavu:", style = MaterialTheme.typography.titleMedium)
@@ -80,48 +75,16 @@ fun PublishRunScreen(
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f), // Take available height
+                    .weight(1f),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // 'it.id' should now resolve correctly as 'localRuns' is directly a List<RunEntity>
                 items(localRuns, key = { it.id }) { run ->
                     RunItemCard(
                         run = run,
                         dateFormat = dateFormat,
                         decimalFormat = decimalFormat,
-                        isSelected = run.id == selectedRun?.id,
-                        onRunSelected = { publishRunViewModel.selectRun(it) }
+                        onRunSelected = { runId -> onRunClick(runId) }
                     )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            selectedRun?.let { run ->
-                Text("Odabrano trčanje:", style = MaterialTheme.typography.titleSmall)
-                Text("Vrijeme: ${dateFormat.format(Date(run.startTime))} - ${run.endTime?.let { dateFormat.format(Date(it)) } ?: "N/A"}")
-                Text("Udaljenost: ${run.distance?.let { decimalFormat.format(it / 1000) } ?: "N/A"} km") // Convert meters to km
-                Text("Prosječni tempo: ${run.avgPace?.let { decimalFormat.format(it) } ?: "N/A"} min/km")
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                OutlinedTextField(
-                    value = caption,
-                    onValueChange = { publishRunViewModel.onCaptionChanged(it) },
-                    label = { Text("Dodajte opis (opcionalno)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    minLines = 3,
-                    maxLines = 5
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Button(
-                    onClick = { publishRunViewModel.publishSelectedRun() },
-                    enabled = !isLoading,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Objavi Trčanje")
                 }
             }
         }
@@ -134,15 +97,14 @@ fun RunItemCard(
     run: RunEntity,
     dateFormat: SimpleDateFormat,
     decimalFormat: DecimalFormat,
-    isSelected: Boolean,
-    onRunSelected: (RunEntity) -> Unit
+    onRunSelected: (Long) -> Unit
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onRunSelected(run) },
+            .clickable { onRunSelected(run.id) },
         colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
@@ -159,7 +121,7 @@ fun RunItemCard(
             }
             run.distance?.let {
                 Text(
-                    text = "Udaljenost: ${decimalFormat.format(it / 1000)} km", // Convert meters to km
+                    text = "Udaljenost: ${decimalFormat.format(it / 1000)} km",
                     style = MaterialTheme.typography.bodySmall
                 )
             }

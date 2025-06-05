@@ -57,17 +57,5 @@ fun RunningScreen(
                 Text("Stop run")
             }
         }
-
-        // Uklonjen Logout gumb jer se sada upravlja tabovima
-        /*
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Button(
-            onClick = onLogout,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Logout")
-        }
-        */
     }
 }
