@@ -13,8 +13,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Comment
 import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.Comment
 import androidx.compose.material.icons.filled.DirectionsRun
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
@@ -194,7 +196,7 @@ fun RunPostCard(
                     modifier = Modifier.clickable { /* TODO: Implement comment functionality */ }
                 ) {
                     Icon(
-                        imageVector = Icons.Default.LocationOn, // Placeholder icon for comments
+                        imageVector = Icons.AutoMirrored.Filled.Comment, // Placeholder icon for comments
                         contentDescription = "Comment",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(24.dp)

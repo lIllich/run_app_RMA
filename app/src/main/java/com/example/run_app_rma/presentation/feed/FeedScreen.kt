@@ -1,37 +1,20 @@
 package com.example.run_app_rma.presentation.feed
 
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.DirectionsRun // Import DirectionsRun icon
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import coil.compose.rememberAsyncImagePainter
-import com.example.run_app_rma.R // Assuming you have a default profile placeholder
-import com.example.run_app_rma.data.firestore.model.RunPost
-import com.example.run_app_rma.data.firestore.model.User
-import com.example.run_app_rma.presentation.common.RunPostCard // Import RunPostCard
+import com.example.run_app_rma.presentation.common.RunPostCard // Import the new reusable card
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
-import java.util.Date
 import java.util.Locale
 
 @Composable

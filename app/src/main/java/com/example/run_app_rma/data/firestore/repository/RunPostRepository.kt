@@ -52,21 +52,6 @@ class RunPostRepository(private val firestore: FirebaseFirestore = FirebaseFires
         }
     }
 
-    // This function will be removed as we're switching to showing only followed users' posts
-    // suspend fun getAllOtherUsersRunPosts(currentUserId: String): Result<List<RunPost>> {
-    //     return try {
-    //         val posts = postsCollection
-    //             .whereNotEqualTo("userId", currentUserId)
-    //             .orderBy("timestamp", Query.Direction.ASCENDING)
-    //             .get()
-    //             .await()
-    //             .toObjects(RunPost::class.java)
-    //         Result.success(posts)
-    //     } catch (e: Exception) {
-    //         Result.failure(e)
-    //     }
-    // }
-
     /**
      * Fetches run posts from a list of specified user IDs.
      * @param userIds A list of user IDs whose posts to fetch.

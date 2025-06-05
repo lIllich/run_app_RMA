@@ -44,7 +44,7 @@ class FeedViewModel(
     private val _userProfiles = mutableStateOf(emptyMap<String, User>())
     val userProfiles: State<Map<String, User>> = _userProfiles
 
-    private val _userLikedPostIds = MutableStateFlow<Set<String>>(emptySet())
+    private val _userLikedPostIds = MutableStateFlow<Set<String>>(emptySet()) // New: State for user's liked post IDs
     val userLikedPostIds: StateFlow<Set<String>> = _userLikedPostIds.asStateFlow()
 
     private val TAG = "FeedViewModel"
