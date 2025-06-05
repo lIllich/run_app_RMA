@@ -88,4 +88,6 @@ dependencies {
     implementation(libs.gson)
     implementation(libs.accompanist.pager)
     implementation(libs.accompanist.pager.indicators)
+
+    implementation(libs.google.firebase.messaging.ktx)
 }

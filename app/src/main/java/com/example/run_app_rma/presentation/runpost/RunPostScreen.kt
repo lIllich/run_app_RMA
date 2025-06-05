@@ -72,6 +72,8 @@ import com.example.run_app_rma.data.firestore.model.User
 import com.example.run_app_rma.presentation.common.UserCard // Import UserCard
 import androidx.compose.foundation.pager.HorizontalPager // Changed import
 import androidx.compose.foundation.pager.rememberPagerState // Changed import
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material3.HorizontalDivider
 import kotlinx.coroutines.launch
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
@@ -294,7 +296,7 @@ fun RunPostScreen(
                     Spacer(modifier = Modifier.height(16.dp))
                 }
 
-                Divider(modifier = Modifier.fillMaxWidth())
+                HorizontalDivider(modifier = Modifier.fillMaxWidth())
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Row(
@@ -383,7 +385,7 @@ fun RunPostScreen(
                                         onClick = { runPostViewModel.addComment() },
                                         enabled = commentInput.isNotBlank() && !isLoadingAction
                                     ) {
-                                        Icon(Icons.Default.Send, contentDescription = "Pošalji komentar")
+                                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Pošalji komentar")
                                     }
                                 }
 
