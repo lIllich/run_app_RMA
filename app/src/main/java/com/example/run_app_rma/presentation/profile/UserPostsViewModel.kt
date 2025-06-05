@@ -46,14 +46,18 @@ class UserPostsViewModel(
 
     private val TAG = "UserPostsViewModel"
 
-    private var viewedUserId: String? = null
+    // Changed from private var to var to allow access from Composable
+    var viewedUserId: String? = null
 
     init {
         savedStateHandle.get<String>("userId")?.let { userId ->
             viewedUserId = userId
-            fetchUserPosts()
-            fetchUserLikedPosts(firebaseAuth.currentUser?.uid) // Fetch current user's likes
-            fetchPostAuthorProfile(userId)
+            // The calls in init block are now redundant due to LaunchedEffect in Screen,
+            // but keeping them for ViewModel's internal consistency if used elsewhere.
+            // Screen's LaunchedEffect will ensure refresh on re-composition.
+            // fetchUserPosts()
+            // fetchUserLikedPosts(firebaseAuth.currentUser?.uid)
+            // fetchPostAuthorProfile(userId)
         }
     }
 
@@ -86,7 +90,8 @@ class UserPostsViewModel(
         }
     }
 
-    private fun fetchUserLikedPosts(currentLoggedInUserId: String?) {
+    // Changed from private fun to fun to allow access from Composable
+    fun fetchUserLikedPosts(currentLoggedInUserId: String?) {
         if (currentLoggedInUserId == null) {
             _userLikedPostIds.value = emptySet()
             Log.d(TAG, "fetchUserLikedPosts called but currentLoggedInUserId is null.")
@@ -103,7 +108,8 @@ class UserPostsViewModel(
         }
     }
 
-    private fun fetchPostAuthorProfile(userId: String) {
+    // Changed from private fun to fun to allow access from Composable
+    fun fetchPostAuthorProfile(userId: String) {
         viewModelScope.launch {
             val result = userRepository.getUserProfile(userId)
             result.onSuccess { user ->

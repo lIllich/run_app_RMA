@@ -285,6 +285,9 @@ class MainActivity : ComponentActivity() {
                                     onViewComments = { postId ->
                                         // TODO: Implement navigation to comments screen
                                         Toast.makeText(this@MainActivity, "Comments for post $postId", Toast.LENGTH_SHORT).show()
+                                    },
+                                    onPostDeleted = {
+                                        navController.popBackStack() // Navigate back when the post is deleted
                                     }
                                 )
                             } else {

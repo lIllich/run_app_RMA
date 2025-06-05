@@ -20,6 +20,13 @@ import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.Date
+import androidx.compose.runtime.LaunchedEffect // Keep for initial fetch if needed, but not for resume
+import androidx.compose.runtime.DisposableEffect // New import for lifecycle observation
+import androidx.compose.ui.platform.LocalLifecycleOwner // New import for lifecycle observation
+import androidx.lifecycle.Lifecycle // New import for lifecycle observation
+import androidx.lifecycle.LifecycleEventObserver // New import for lifecycle observation
+import com.google.firebase.auth.FirebaseAuth // Import FirebaseAuth
+import android.util.Log // Import Log for debugging
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -38,6 +45,46 @@ fun UserPostsScreen(
 
     val dateFormat = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
     val decimalFormat = DecimalFormat("#.##")
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                Log.d("UserPostsScreen", "Lifecycle Event: ON_RESUME detected. Refreshing data.")
+                // When the screen comes to the foreground (resumes), refresh all data
+                userPostsViewModel.viewedUserId?.let { userId ->
+                    Log.d("UserPostsScreen", "Calling fetchUserPosts() for user ID: $userId")
+                    userPostsViewModel.fetchUserPosts()
+                    Log.d("UserPostsScreen", "Calling fetchUserLikedPosts() for current user ID: ${FirebaseAuth.getInstance().currentUser?.uid}")
+                    userPostsViewModel.fetchUserLikedPosts(FirebaseAuth.getInstance().currentUser?.uid)
+                    Log.d("UserPostsScreen", "Calling fetchPostAuthorProfile() for user ID: $userId")
+                    userPostsViewModel.fetchPostAuthorProfile(userId)
+                } ?: run {
+                    Log.w("UserPostsScreen", "viewedUserId is null on ON_RESUME. Cannot refresh posts.")
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+
+        onDispose {
+            Log.d("UserPostsScreen", "DisposableEffect disposing. Removing lifecycle observer.")
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    // You can remove the LaunchedEffect here if you solely rely on DisposableEffect for refresh
+    // However, keeping it might be useful for the very first composition when the ViewModel is created.
+    // If you keep it, ensure it doesn't cause double fetches on initial load.
+    // Given the ViewModel's init block already fetches, this LaunchedEffect might be redundant
+    // for initial load if not for key changes. For clarity, I'm removing it here.
+    /*
+    LaunchedEffect(key1 = userPostsViewModel.viewedUserId, key2 = FirebaseAuth.getInstance().currentUser?.uid) {
+        userPostsViewModel.fetchUserPosts()
+        userPostsViewModel.fetchUserLikedPosts(FirebaseAuth.getInstance().currentUser?.uid)
+        userPostsViewModel.viewedUserId?.let { userPostsViewModel.fetchPostAuthorProfile(it) }
+    }
+    */
 
     Scaffold(
         topBar = {

@@ -166,7 +166,6 @@ class RunPostRepository(private val firestore: FirebaseFirestore = FirebaseFires
         }
     }
 
-    // This method is now properly defined
     suspend fun deleteComment(commentId: String, postId: String): Result<Unit> {
         return try {
             val commentDocRef = commentsCollection.document(commentId)
@@ -195,6 +194,43 @@ class RunPostRepository(private val firestore: FirebaseFirestore = FirebaseFires
             Result.failure(e)
         }
     }
+
+    suspend fun deleteRunPost(postId: String): Result<Unit> {
+        return try {
+            Log.d(TAG, "Starting deleteRunPost for postId: $postId")
+
+            // 1. Delete all likes associated with the post
+            Log.d(TAG, "Attempting to delete likes for post: $postId")
+            val likesSnapshot = likesCollection.whereEqualTo("postId", postId).get().await()
+            Log.d(TAG, "Found ${likesSnapshot.size()} likes to delete for post: $postId")
+            for (document in likesSnapshot.documents) {
+                Log.d(TAG, "Deleting like document: ${document.id}")
+                document.reference.delete().await()
+            }
+            Log.d(TAG, "Successfully deleted all likes for post $postId.")
+
+            // 2. Delete all comments associated with the post
+            Log.d(TAG, "Attempting to delete comments for post: $postId")
+            val commentsSnapshot = commentsCollection.whereEqualTo("postId", postId).get().await()
+            Log.d(TAG, "Found ${commentsSnapshot.size()} comments to delete for post: $postId")
+            for (document in commentsSnapshot.documents) {
+                Log.d(TAG, "Deleting comment document: ${document.id}")
+                document.reference.delete().await()
+            }
+            Log.d(TAG, "Successfully deleted all comments for post $postId.")
+
+            // 3. Delete the post itself
+            Log.d(TAG, "Attempting to delete the post document: $postId")
+            postsCollection.document(postId).delete().await()
+            Log.d(TAG, "Post $postId deleted successfully from 'posts' collection.")
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "FATAL ERROR during deleteRunPost for post $postId: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+
 
     // New: Get multiple users by a list of user IDs
     suspend fun getUsersByIds(userIds: List<String>): Result<List<User>> {

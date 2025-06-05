@@ -331,6 +331,48 @@ class RunPostViewModel(
         }
     }
 
+    // Modified to accept a lambda for success action
+    fun deletePost(postId: String, onSuccessAction: () -> Unit) {
+        val currentUserId = firebaseAuth.currentUser?.uid ?: run {
+            _errorMessage.value = "You must be logged in to delete posts."
+            Log.w(TAG, "User not logged in, cannot delete post.")
+            return
+        }
+        val postToDelete = _runPost.value
+        if (postToDelete == null || postToDelete.id != postId) {
+            _errorMessage.value = "Post not found or ID mismatch."
+            Log.w(TAG, "Post not found or ID mismatch for deletion: $postId")
+            return
+        }
+        if (currentUserId != postToDelete.userId) {
+            _errorMessage.value = "You don't have permission to delete this post."
+            Log.w(TAG, "User $currentUserId attempted to delete post $postId without permission (not owner).")
+            return
+        }
+
+        Log.d(TAG, "Attempting to delete post $postId by user $currentUserId")
+        _isLoadingAction.value = true
+        viewModelScope.launch {
+            try {
+                // Await the deletion result before continuing
+                runPostRepository.deleteRunPost(postId).onSuccess {
+                    Log.d(TAG, "Post $postId deleted successfully from RunPostRepository.")
+                    _runPost.value = null // Clear the post from the UI
+                    _errorMessage.value = "Objava je uspješno obrisana." // Provide feedback
+                    onSuccessAction() // <--- Call the provided lambda ONLY on success
+                }.onFailure { e ->
+                    _errorMessage.value = e.message ?: "Failed to delete post."
+                    Log.e(TAG, "Error deleting post $postId: ${e.message}", e)
+                }
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "An unexpected error occurred while deleting post."
+                Log.e(TAG, "Unexpected error in deletePost", e)
+            } finally {
+                _isLoadingAction.value = false
+            }
+        }
+    }
+
 
     // New helper function to refresh only likes and comments after an action
     private fun fetchUpdatedLikeAndCommentData(postId: String) {

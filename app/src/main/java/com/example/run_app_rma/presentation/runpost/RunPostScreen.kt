@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.MoreVert // Import for three dots menu icon
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -71,8 +72,6 @@ import com.example.run_app_rma.data.firestore.model.User
 import com.example.run_app_rma.presentation.common.UserCard // Import UserCard
 import androidx.compose.foundation.pager.HorizontalPager // Changed import
 import androidx.compose.foundation.pager.rememberPagerState // Changed import
-import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material3.HorizontalDivider
 import kotlinx.coroutines.launch
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
@@ -88,7 +87,8 @@ fun RunPostScreen(
     onBack: () -> Unit,
     onUserClick: (String) -> Unit, // To navigate to post creator's profile
     onViewLikedUsers: (String, String) -> Unit, // To navigate to UserListScreen for liked users
-    onViewComments: (String) -> Unit // To be implemented later for comments, currently for toast
+    onViewComments: (String) -> Unit, // To be implemented later for comments, currently for toast
+    onPostDeleted: () -> Unit // New callback for when the post is deleted
 ) {
     val runPost by runPostViewModel.runPost.collectAsState()
     val postUser by runPostViewModel.postUser.collectAsState()
@@ -102,6 +102,8 @@ fun RunPostScreen(
     val commentInput by runPostViewModel.commentInput.collectAsState()
     val currentUserId by runPostViewModel.currentUserId.collectAsState() // Observe current user ID
 
+    var showPostMenu by remember { mutableStateOf(false) } // State for post dropdown menu
+
     val dateFormat = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
     val decimalFormat = DecimalFormat("#.##")
 
@@ -112,7 +114,10 @@ fun RunPostScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        // Removed combinedClickable from here, as the menu is now in actions
+                    ) {
                         Text("Objava Trčanja")
                         if (isInitialLoading) {
                             Spacer(modifier = Modifier.width(8.dp))
@@ -127,6 +132,33 @@ fun RunPostScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Natrag")
+                    }
+                },
+                actions = {
+                    // Show three dots menu only if current user is the post owner
+                    if (runPost != null && currentUserId == runPost?.userId) {
+                        IconButton(onClick = { showPostMenu = true }) {
+                            Icon(Icons.Default.MoreVert, contentDescription = "Opcije objave")
+                        }
+                        // Dropdown menu for post deletion
+                        DropdownMenu(
+                            expanded = showPostMenu,
+                            onDismissRequest = { showPostMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Obriši objavu") },
+                                onClick = {
+                                    showPostMenu = false // Dismiss menu immediately
+                                    runPostViewModel.deletePost(
+                                        postId = runPost!!.id,
+                                        onSuccessAction = { onPostDeleted() } // Pass the navigation callback
+                                    )
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Default.Delete, contentDescription = "Obriši objavu")
+                                }
+                            )
+                        }
                     }
                 }
             )
@@ -148,6 +180,30 @@ fun RunPostScreen(
             } else if (runPost != null) {
                 val post = runPost!!
                 val currentPostUser = postUser
+
+                // The post deletion DropdownMenu is now part of the TopAppBar actions.
+                // This block is no longer needed here if the menu is strictly in the TopAppBar.
+                // If there were other post-related menus not tied to the TopAppBar, they would remain here.
+                /*
+                DropdownMenu(
+                    expanded = showPostMenu,
+                    onDismissRequest = { showMenu = false }
+                ) {
+                    if (currentUserId == post.userId) { // Check if current user is the post owner
+                        DropdownMenuItem(
+                            text = { Text("Obriši objavu") },
+                            onClick = {
+                                runPostViewModel.deletePost(post.id)
+                                showMenu = false // Dismiss menu after action
+                                onPostDeleted() // Navigate back after deletion
+                            },
+                            leadingIcon = {
+                                Icon(Icons.Default.Delete, contentDescription = "Obriši objavu")
+                            }
+                        )
+                    }
+                }
+                */
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -238,7 +294,7 @@ fun RunPostScreen(
                     Spacer(modifier = Modifier.height(16.dp))
                 }
 
-                HorizontalDivider(modifier = Modifier.fillMaxWidth())
+                Divider(modifier = Modifier.fillMaxWidth())
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Row(
@@ -327,7 +383,7 @@ fun RunPostScreen(
                                         onClick = { runPostViewModel.addComment() },
                                         enabled = commentInput.isNotBlank() && !isLoadingAction
                                     ) {
-                                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Pošalji komentar")
+                                        Icon(Icons.Default.Send, contentDescription = "Pošalji komentar")
                                     }
                                 }
 
