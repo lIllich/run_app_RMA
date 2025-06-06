@@ -20,6 +20,7 @@ import kotlinx.coroutines.launch
 import java.util.Date
 import java.text.DecimalFormat
 
+
 class PublishRunViewModel(
     private val runDao: RunDao,
     private val runPostRepository: RunPostRepository,

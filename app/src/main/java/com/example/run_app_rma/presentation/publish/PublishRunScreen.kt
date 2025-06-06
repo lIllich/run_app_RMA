@@ -28,8 +28,8 @@ fun PublishRunScreen(
     publishRunViewModel: PublishRunViewModel = viewModel()
 ) {
     val localRuns = publishRunViewModel.localRuns
-    val isLoading by publishRunViewModel.isLoading // This is for initial screen loading or publish action
-    val isRefreshing by publishRunViewModel.isRefreshing.collectAsState() // Observe refreshing state
+    val isLoading by publishRunViewModel.isLoading
+    val isRefreshing by publishRunViewModel.isRefreshing.collectAsState()
     val errorMessage by publishRunViewModel.errorMessage
     val successMessage by publishRunViewModel.successMessage
     val selectedRun by publishRunViewModel.selectedRun
@@ -52,7 +52,6 @@ fun PublishRunScreen(
             modifier = Modifier.padding(bottom = 16.dp)
         )
 
-        // Only show CircularProgressIndicator if it's the initial load AND not refreshing
         if (isLoading && !isRefreshing) {
             CircularProgressIndicator(modifier = Modifier.padding(16.dp))
         }
@@ -75,23 +74,20 @@ fun PublishRunScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Wrap the content of the LazyColumn (which holds the list of runs) with SwipeRefresh
-        // The TextField and Button below are outside the refresh scope, which is fine.
         SwipeRefresh(
             state = swipeRefreshState,
-            onRefresh = { publishRunViewModel.loadLocalRuns() }, // Trigger refresh
+            onRefresh = { publishRunViewModel.loadLocalRuns() },
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f) // Ensures SwipeRefresh takes available height
+                .weight(1f)
         ) {
             Column(
-                modifier = Modifier.fillMaxSize(), // Fill the space provided by SwipeRefresh
+                modifier = Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Only show "No runs" if list is empty and not currently loading or refreshing
                 if (localRuns.isEmpty() && !isLoading && !isRefreshing) {
                     Text("Nema lokalno spremljenih trčanja za objavu.")
-                } else if (localRuns.isNotEmpty() || (isLoading && !isRefreshing)) {
+                } else {
                     Text("Odaberite trčanje za objavu:", style = MaterialTheme.typography.titleMedium)
                     Spacer(modifier = Modifier.height(8.dp))
 
@@ -113,7 +109,6 @@ fun PublishRunScreen(
             }
         }
 
-        // Content outside the SwipeRefresh:
         Spacer(modifier = Modifier.height(16.dp))
 
         selectedRun?.let { run ->
@@ -160,7 +155,10 @@ fun RunItemCard(
             .fillMaxWidth()
             .clickable { onRunSelected(run) },
         colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+            containerColor = if (isSelected)
+                MaterialTheme.colorScheme.primaryContainer
+            else
+                MaterialTheme.colorScheme.surfaceVariant
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {

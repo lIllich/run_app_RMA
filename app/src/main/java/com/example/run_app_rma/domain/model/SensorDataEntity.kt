@@ -20,7 +20,5 @@ data class SensorDataEntity(
     val runId: Long,    // foreign key to RunEntity
     val timestamp: Long,
     val sensorType: SensorType,
-    val x: Float,
-    val y: Float,
-    val z: Float
+    val steps: Int?
 )

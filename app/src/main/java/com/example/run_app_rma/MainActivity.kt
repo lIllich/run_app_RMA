@@ -55,7 +55,6 @@ import android.util.Log
 class MainActivity : ComponentActivity() {
 
     private lateinit var locationService: LocationService
-    private lateinit var sensorService: SensorService
     private lateinit var appDatabase: AppDatabase
     private lateinit var authRepository: AuthRepository
     private lateinit var userRepository: UserRepository
@@ -75,6 +74,8 @@ class MainActivity : ComponentActivity() {
         val readExternalStorageGranted = permissions[android.Manifest.permission.READ_EXTERNAL_STORAGE] ?: false
         val writeExternalStorageGranted = permissions[android.Manifest.permission.WRITE_EXTERNAL_STORAGE] ?: false
         val readMediaImagesGranted = permissions[android.Manifest.permission.READ_MEDIA_IMAGES] ?: false
+        val activityRecognitionGranted = permissions[android.Manifest.permission.ACTIVITY_RECOGNITION] ?: false
+        val foregroundServiceGranted = permissions[android.Manifest.permission.FOREGROUND_SERVICE] ?: false
 
         if (fineLocationGranted && coarseLocationGranted) {
             Toast.makeText(this, "Location permissions granted.", Toast.LENGTH_SHORT).show()
@@ -87,6 +88,12 @@ class MainActivity : ComponentActivity() {
         }
         if (readExternalStorageGranted || writeExternalStorageGranted || readMediaImagesGranted) {
             Toast.makeText(this, "Storage permission granted.", Toast.LENGTH_SHORT).show()
+        }
+
+        if (activityRecognitionGranted) {
+            Toast.makeText(this, "Activity recognition permission granted.", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(this, "Activity recognition permission denied.", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -107,7 +114,6 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         locationService = LocationService(this)
-        sensorService = SensorService(this)
         appDatabase = AppDatabase.getInstance(applicationContext)
         authRepository = AuthRepository(applicationContext)
         userRepository = UserRepository(FirebaseFirestore.getInstance())
@@ -123,7 +129,9 @@ class MainActivity : ComponentActivity() {
                 android.Manifest.permission.CAMERA,
                 android.Manifest.permission.READ_EXTERNAL_STORAGE,
                 android.Manifest.permission.WRITE_EXTERNAL_STORAGE,
-                android.Manifest.permission.READ_MEDIA_IMAGES
+                android.Manifest.permission.READ_MEDIA_IMAGES,
+                android.Manifest.permission.ACTIVITY_RECOGNITION,
+                android.Manifest.permission.FOREGROUND_SERVICE
             )
         )
 
@@ -172,11 +180,11 @@ class MainActivity : ComponentActivity() {
                         composable("main_screen") {
                             val runViewModel: RunViewModel = viewModel(
                                 factory = RunViewModel.Factory(
+                                    application,
                                     appDatabase.runDao(),
                                     appDatabase.locationDao(),
                                     appDatabase.sensorDao(),
-                                    locationService,
-                                    sensorService
+                                    locationService
                                 )
                             )
 

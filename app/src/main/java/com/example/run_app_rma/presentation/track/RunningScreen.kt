@@ -25,8 +25,7 @@ fun RunningScreen(
 ) {
     val isTracking by runViewModel.isTracking.collectAsState()
     val locationText by runViewModel.liveLocationData
-    val accelerometerText by runViewModel.liveAccelerometerData
-    val gyroscopeText by runViewModel.liveGyroscopeData
+    val stepsText by runViewModel.liveStepsData
 
     Column(
         modifier = modifier
@@ -36,8 +35,7 @@ fun RunningScreen(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(text = locationText)
-        Text(text = accelerometerText)
-        Text(text = gyroscopeText)
+        Text(text = stepsText)
 
         Spacer(modifier = Modifier.height(24.dp))
 

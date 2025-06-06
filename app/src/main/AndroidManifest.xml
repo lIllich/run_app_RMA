@@ -1,22 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Features -->
     <uses-feature
         android:name="android.hardware.camera"
         android:required="false" />
     <uses-feature
-        android:name="android.hardware.camera"
-        android:required="false" />
+        android:glEsVersion="0x00020000"
+        android:required="true" />
 
+    <!-- Permissions -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_HEALTH" />
+    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    <!-- New: Required for displaying notifications on Android 13 (API 33) and higher -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="com.google.android.providers.gsf.permission.READ_GSERVICES" />
 
     <application
         android:allowBackup="true"
@@ -27,28 +32,29 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Run_app_RMA">
+
+        <!-- Main Activity -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:theme="@style/Theme.Run_app_RMA"
-            android:launchMode="singleTop"> <!-- New: Added launchMode="singleTop" -->
+            android:launchMode="singleTop">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- New: Intent filter for handling notification tap deep links -->
-            <!-- This allows your MainActivity to be launched or brought to the
-                 foreground when a notification is tapped. -->
+
+            <!-- Optional: For handling deep links from notifications -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <!-- Replace with your actual scheme/host if using deep links.
-                     For FCM, usually the activity simply receives the Intent. -->
+                <!-- Uncomment and edit if you support deep links -->
                 <!-- <data android:scheme="yourapp" android:host="notification" /> -->
             </intent-filter>
         </activity>
 
+        <!-- File Provider -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.provider"
@@ -59,6 +65,7 @@
                 android:resource="@xml/file_paths"/>
         </provider>
 
+        <!-- Firebase Messaging Service -->
         <service
             android:name=".notifications.MyFirebaseMessagingService"
             android:exported="false">
@@ -66,5 +73,10 @@
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
+
+        <!-- Sensor Tracking Foreground Service -->
+        <service
+            android:name="com.example.run_app_rma.sensor.tracking.SensorService"
+            android:foregroundServiceType="health" />
     </application>
 </manifest>
