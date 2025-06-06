@@ -1,6 +1,9 @@
 // MainActivity.kt
 package com.example.run_app_rma
 
+import android.Manifest
+import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -16,6 +19,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.core.content.ContextCompat
+import androidx.core.content.ContextCompat.startForegroundService
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -45,6 +50,8 @@ import com.example.run_app_rma.presentation.profile.OtherUserProfileScreen
 import com.example.run_app_rma.presentation.profile.OtherUserProfileViewModel
 import com.example.run_app_rma.presentation.publish.RunDetailsScreen
 import com.example.run_app_rma.presentation.publish.RunDetailsViewModel // Import RunDetailsViewModel
+import com.example.run_app_rma.sensor.tracking.TrackingService
+import com.example.run_app_rma.sensor.tracking.TrackingService.Companion.EXTRA_RUN_ID
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.firebase.auth.FirebaseAuth
@@ -73,16 +80,28 @@ class MainActivity : ComponentActivity() {
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
-        val fineLocationGranted = permissions[android.Manifest.permission.ACCESS_FINE_LOCATION] ?: false
-        val coarseLocationGranted = permissions[android.Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
-        val cameraGranted = permissions[android.Manifest.permission.CAMERA] ?: false
-        val readExternalStorageGranted = permissions[android.Manifest.permission.READ_EXTERNAL_STORAGE] ?: false
-        val readMediaImagesGranted = permissions[android.Manifest.permission.READ_MEDIA_IMAGES] ?: false
+        val fineLocationGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: false
+        val coarseLocationGranted = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
+        val backgroundLocationGranted = permissions[Manifest.permission.ACCESS_BACKGROUND_LOCATION] ?: false
+        val postNotificationsGranted = permissions[Manifest.permission.POST_NOTIFICATIONS] ?: false
+        val cameraGranted = permissions[Manifest.permission.CAMERA] ?: false
+        val readExternalStorageGranted = permissions[Manifest.permission.READ_EXTERNAL_STORAGE] ?: false
+        val readMediaImagesGranted = permissions[Manifest.permission.READ_MEDIA_IMAGES] ?: false
 
         if (fineLocationGranted && coarseLocationGranted) {
             Toast.makeText(this, "Location permissions granted.", Toast.LENGTH_SHORT).show()
+            if (!backgroundLocationGranted) {
+                Toast.makeText(
+                    this,
+                    "Background location permission is recommended for continuous tracking.",
+                    Toast.LENGTH_LONG).show()
+            }
         } else {
             Toast.makeText(this, "Location permissions denied.", Toast.LENGTH_SHORT).show()
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !postNotificationsGranted) {
+            Toast.makeText(this, "Notification permission is required for background tracking.", Toast.LENGTH_LONG).show()
         }
 
         if (cameraGranted) {
@@ -93,6 +112,22 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun startTrackingService(runId: Long) {
+        val intent = Intent(this, TrackingService::class.java).apply {
+            action = TrackingService.ACTION_START_OR_RESUME_SERVICE
+            putExtra(EXTRA_RUN_ID, runId)
+        }
+        startForegroundService(this, intent)
+        Toast.makeText(this, "Tracking service started.", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun stopTrackingService() {
+        val intent = Intent(this, TrackingService::class.java).apply {
+            action = TrackingService.ACTION_STOP_SERVICE
+        }
+        startService(intent)
+        Toast.makeText(this, "Tracking service stopped.", Toast.LENGTH_SHORT).show()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -108,15 +143,21 @@ class MainActivity : ComponentActivity() {
         firebaseAuth = FirebaseAuth.getInstance()
         firebaseStorage = FirebaseStorage.getInstance()
 
+        val permissionsToRequest = mutableListOf(
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+            Manifest.permission.ACCESS_BACKGROUND_LOCATION,
+            Manifest.permission.CAMERA,
+            Manifest.permission.READ_EXTERNAL_STORAGE,
+            Manifest.permission.WRITE_EXTERNAL_STORAGE,
+            Manifest.permission.READ_MEDIA_IMAGES
+        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
+        }
+
         requestPermissionLauncher.launch(
-            arrayOf(
-                android.Manifest.permission.ACCESS_FINE_LOCATION,
-                android.Manifest.permission.ACCESS_COARSE_LOCATION,
-                android.Manifest.permission.CAMERA,
-                android.Manifest.permission.READ_EXTERNAL_STORAGE,
-                android.Manifest.permission.WRITE_EXTERNAL_STORAGE,
-                android.Manifest.permission.READ_MEDIA_IMAGES
-            )
+            permissionsToRequest.toTypedArray()
         )
 
         setContent {
@@ -143,7 +184,9 @@ class MainActivity : ComponentActivity() {
                                 factory = RunViewModel.Factory(
                                     appDatabase.runDao(),
                                     appDatabase.locationDao(),
-                                    locationService
+                                    locationService,
+                                    onStartTrackingService = { runId -> startTrackingService(runId) },
+                                    onStopTrackingService = { stopTrackingService() }
                                 )
                             )
 
@@ -180,7 +223,9 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onRunClick = { runId ->
                                     navController.navigate("run_details_screen/$runId")
-                                }
+                                },
+                                onStartTrackingService = { runId -> startTrackingService(runId) },
+                                onStopTrackingService = { stopTrackingService() }
                             )
                         }
                         composable("edit_profile/{userId}") { backStackEntry ->

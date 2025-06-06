@@ -71,7 +71,9 @@ fun MainScreenWithTabs(
     onViewFollowers: (String) -> Unit,
     onUserClick: (String) -> Unit, // For UserCard clicks in FollowScreen and RunPostCard clicks
     onPostClick: (String) -> Unit, // Added onPostClick parameter
-    onRunClick: (Long) -> Unit // Added onRunClick parameter for PublishRunScreen
+    onRunClick: (Long) -> Unit, // Added onRunClick parameter for PublishRunScreen
+    onStartTrackingService: (Long) -> Unit,
+    onStopTrackingService: () -> Unit
 ) {
     val pagerState = rememberPagerState(initialPage = TabScreen.FEED.ordinal) { // Set initial page to Feed
         TabScreen.values().size
