@@ -16,6 +16,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -25,7 +26,12 @@ fun RunningScreen(
 ) {
     val isTracking by runViewModel.isTracking.collectAsState()
     val locationText by runViewModel.liveLocationData
-    val stepsText by runViewModel.liveStepsData
+    val sensorText by runViewModel.liveSensorData
+
+    // debug
+    val context = LocalContext.current
+    //***
+
 
     Column(
         modifier = modifier
@@ -35,8 +41,10 @@ fun RunningScreen(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(text = locationText)
-        Text(text = stepsText)
 
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Text(text = sensorText)
         Spacer(modifier = Modifier.height(24.dp))
 
         if(!isTracking) {
@@ -56,16 +64,15 @@ fun RunningScreen(
             }
         }
 
-        // Uklonjen Logout gumb jer se sada upravlja tabovima
-        /*
-        Spacer(modifier = Modifier.height(24.dp))
-
+        // debug
         Button(
-            onClick = onLogout,
-            modifier = Modifier.fillMaxWidth()
+            onClick = { runViewModel.exportDatabase(context) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 16.dp)
         ) {
-            Text("Logout")
+            Text("Export DB")
         }
-        */
+        //***
     }
 }

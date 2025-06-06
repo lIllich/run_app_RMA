@@ -1,3 +1,4 @@
+// MainActivity.kt
 package com.example.run_app_rma
 
 import android.content.Intent
@@ -9,18 +10,22 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
+
+import androidx.navigation.NavType
 import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.example.run_app_rma.data.db.AppDatabase
 import com.example.run_app_rma.data.remote.AuthRepository
 import com.example.run_app_rma.sensor.tracking.LocationService
@@ -32,23 +37,30 @@ import com.example.run_app_rma.presentation.main.MainScreenWithTabs
 import com.example.run_app_rma.data.firestore.repository.UserRepository
 import com.example.run_app_rma.data.firestore.repository.FollowRepository
 import com.example.run_app_rma.data.firestore.repository.RunPostRepository
-import com.example.run_app_rma.presentation.feed.FeedViewModel
 import com.example.run_app_rma.presentation.runpost.RunPostScreen
 import com.example.run_app_rma.presentation.runpost.RunPostViewModel
 import com.example.run_app_rma.presentation.search.SearchUserViewModel
 import com.example.run_app_rma.presentation.profile.EditProfileScreen
 import com.example.run_app_rma.presentation.profile.EditProfileViewModel
-import com.example.run_app_rma.presentation.profile.ProfileScreen
 import com.example.run_app_rma.presentation.profile.UserPostsScreen
 import com.example.run_app_rma.presentation.profile.UserPostsViewModel
 import com.example.run_app_rma.presentation.profile.UserListScreen
 import com.example.run_app_rma.presentation.profile.UserListViewModel
 import com.example.run_app_rma.presentation.profile.OtherUserProfileScreen
 import com.example.run_app_rma.presentation.profile.OtherUserProfileViewModel
-import com.example.run_app_rma.presentation.publish.PublishRunViewModel
+import com.example.run_app_rma.presentation.publish.RunDetailsScreen
+import com.example.run_app_rma.presentation.publish.RunDetailsViewModel // Import RunDetailsViewModel
+import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.model.LatLng
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
+import com.google.maps.android.compose.GoogleMap
+import com.google.maps.android.compose.MapUiSettings
+import com.google.maps.android.compose.Marker
+import com.google.maps.android.compose.Polyline
+import com.google.maps.android.compose.rememberCameraPositionState
+import com.google.maps.android.compose.rememberMarkerState
 import android.util.Log
 
 
@@ -82,7 +94,6 @@ class MainActivity : ComponentActivity() {
         } else {
             Toast.makeText(this, "Location permissions denied.", Toast.LENGTH_SHORT).show()
         }
-
         if (cameraGranted) {
             Toast.makeText(this, "Camera permission granted.", Toast.LENGTH_SHORT).show()
         }
@@ -218,6 +229,9 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onPostClick = { postId ->
                                     navController.navigate("run_post_screen/$postId")
+                                },
+                                onRunClick = { runId ->
+                                    navController.navigate("run_details_screen/$runId")
                                 }
                             )
                         }
@@ -343,6 +357,44 @@ class MainActivity : ComponentActivity() {
                                 navController.popBackStack()
                             }
                         }
+                        composable("run_details_screen/{runId}") { backStackEntry ->
+                            val runId = backStackEntry.arguments?.getString("runId")?.toLongOrNull()
+                            if (runId != null) {
+                                RunDetailsScreen(
+                                    runId = runId,
+                                    appDatabase = appDatabase,
+                                    runPostRepository = runPostRepository,
+                                    userRepository = userRepository,
+                                    firebaseAuth = firebaseAuth,
+                                    modifier = Modifier,
+                                    onViewMapClick = { id ->
+                                        // navigate to the new fullscreen map screen
+                                        navController.navigate("fullscreen_map_screen/$id")
+                                    }
+                                )
+                            } else {
+                                Toast.makeText(this@MainActivity, "Run ID missing.", Toast.LENGTH_SHORT).show()
+                                navController.popBackStack()
+                            }
+                        }
+                        composable("fullscreen_map_screen/{runId}",
+                            arguments = listOf(navArgument("runId") { type = NavType.LongType })
+                        ) { backStackEntry ->
+                            val runId = backStackEntry.arguments?.getLong("runId")
+                            if (runId != null) {
+                                FullscreenMapScreen(
+                                    runId = runId,
+                                    appDatabase = appDatabase, // Pass the database instance
+                                    runPostRepository = runPostRepository,
+                                    userRepository = userRepository,
+                                    firebaseAuth = firebaseAuth,
+                                    onBackClick = { navController.popBackStack() } // Navigate back
+                                )
+                            } else {
+                                Toast.makeText(this@MainActivity, "Run ID for map missing.", Toast.LENGTH_SHORT).show()
+                                navController.popBackStack()
+                            }
+                        }
                     }
                 }
             }
@@ -413,6 +465,86 @@ class MainActivity : ComponentActivity() {
     fun GreetingPreview() {
         Run_app_RMATheme {
             Text("Hello Android!")
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun FullscreenMapScreen(
+    runId: Long,
+    appDatabase: AppDatabase,
+    runPostRepository: RunPostRepository,
+    userRepository: UserRepository,
+    firebaseAuth: FirebaseAuth,
+    onBackClick: () -> Unit
+) {
+    // Re-use the RunDetailsViewModel to fetch location data for the given runId
+    val runDetailsViewModel: RunDetailsViewModel = viewModel(
+        factory = RunDetailsViewModel.Factory(
+            runId = runId,
+            runDao = appDatabase.runDao(), // Pass the necessary DAOs from appDatabase
+            locationDao = appDatabase.locationDao(),
+            runPostRepository = runPostRepository,
+            userRepository = userRepository,
+            firebaseAuth = firebaseAuth
+        )
+    )
+    val locationData by runDetailsViewModel.locationData.collectAsState()
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Karta Trčanja") },
+                navigationIcon = {
+                    IconButton(onClick = onBackClick) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Natrag")
+                    }
+                }
+            )
+        }
+    ) { paddingValues ->
+        if (locationData.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("Učitavanje podataka o lokaciji...")
+            }
+            return@Scaffold
+        }
+
+        val pathPoints = locationData.map { LatLng(it.lat, it.lon) }
+        val cameraPositionState = rememberCameraPositionState {
+            // Center the map on the first point, or a more appropriate initial zoom level
+            position = CameraPosition.fromLatLngZoom(pathPoints.first(), 15f)
+        }
+
+        GoogleMap(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues), // Apply padding from Scaffold
+            cameraPositionState = cameraPositionState,
+            // Ensure map gestures are enabled
+            uiSettings = MapUiSettings(zoomControlsEnabled = true, scrollGesturesEnabled = true, zoomGesturesEnabled = true)
+        ) {
+            Polyline(
+                points = pathPoints,
+                color = Color.Red,
+                width = 8f
+            )
+            Marker(
+                state = rememberMarkerState(position = pathPoints.first()),
+                title = "Start"
+            )
+            if (pathPoints.size > 1) {
+                Marker(
+                    state = rememberMarkerState(position = pathPoints.last()),
+                    title = "End"
+                )
+            }
         }
     }
 }

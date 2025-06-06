@@ -46,11 +46,7 @@ class SensorService : Service(), SensorEventListener {
         super.onCreate()
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         stepCounterSensor = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)
-
-        // Get DAO from singleton DB
-        val database = AppDatabase.getInstance(applicationContext)
-        sensorDao = database.sensorDao()
-
+        sensorDao = AppDatabase.getInstance(applicationContext).sensorDao()
         createNotificationChannel()
     }
 
@@ -82,7 +78,6 @@ class SensorService : Service(), SensorEventListener {
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
-
         startForeground(1, notification)
     }
 
@@ -110,7 +105,7 @@ class SensorService : Service(), SensorEventListener {
                     runId = runId,
                     timestamp = System.currentTimeMillis(),
                     sensorType = SensorType.PEDOMETER,
-                    steps = currentSteps.toInt()
+                    steps = currentSteps
                 )
                 serviceScope.launch {
                     sensorDao.insertSensorData(sensorData)
@@ -121,7 +116,7 @@ class SensorService : Service(), SensorEventListener {
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
-        // Not used for step counter
+        // No-op
     }
 
     override fun onDestroy() {

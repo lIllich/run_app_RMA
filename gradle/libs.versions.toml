@@ -5,25 +5,30 @@ activityCompose = "1.10.1"
 activityKtx = "1.10.1"
 agp = "8.9.3"
 coilCompose = "2.2.2"
-composeBom = "2025.05.01"
+composeBom = "2025.06.00"
 coreKtx = "1.16.0"
 espressoCore = "3.6.1"
 firebaseAuthKtx = "23.2.1"
 firebaseBom = "33.14.0"
-firebaseBomVersion = "33.0.0"
+firebaseBomVersion = "33.14.0"
 firebaseFirestoreKtx = "25.1.4"
 gson = "2.10.1"
 junit = "4.13.2"
 junitVersion = "1.2.1"
 kotlin = "2.0.21"
-lifecycleRuntimeKtx = "2.9.0"
-lifecycleViewmodelCompose = "2.9.0"
-lifecycleViewmodelComposeVersion = "2.7.0"
+lifecycleRuntimeKtx = "2.9.1"
+lifecycleViewmodelCompose = "2.9.1"
+lifecycleViewmodelComposeVersion = "2.9.1"
+mapsCompose = "4.3.1"
+material3 = "1.3.2"
 playServicesLocation = "21.3.0"
+playServicesMaps = "19.2.0"
 room = "2.7.1"
 roomCompiler = "2.7.1"
 firebaseStorageKtx = "21.0.2"
 navigationComposeAndroid = "2.9.0"
+ui = "1.8.2"
+uiToolingPreview = "1.8.2"
 
 [libraries]
 accompanist-pager = { module = "com.google.accompanist:accompanist-pager", version.ref = "accompanistPager" }
@@ -32,6 +37,7 @@ accompanist-swiperefresh = { module = "com.google.accompanist:accompanist-swiper
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
 androidx-activity-ktx = { module = "androidx.activity:activity-ktx", version.ref = "activityKtx" }
 androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
+androidx-compose-ui-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview", version.ref = "uiToolingPreview" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
 androidx-foundation = { module = "androidx.compose.foundation:foundation" }
@@ -60,11 +66,15 @@ google-firebase-firestore-ktx = { module = "com.google.firebase:firebase-firesto
 google-firebase-messaging-ktx = { module = "com.google.firebase:firebase-messaging-ktx" }
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
+maps-compose = { module = "com.google.maps.android:maps-compose", version.ref = "mapsCompose" }
+material3 = { module = "androidx.compose.material3:material3", version.ref = "material3" }
 play-services-location = { module = "com.google.android.gms:play-services-location", version.ref = "playServicesLocation" }
+play-services-maps = { module = "com.google.android.gms:play-services-maps", version.ref = "playServicesMaps" }
 room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
 room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 firebase-storage-ktx = { group = "com.google.firebase", name = "firebase-storage-ktx", version.ref = "firebaseStorageKtx" }
 androidx-navigation-compose-android = { group = "androidx.navigation", name = "navigation-compose-android", version.ref = "navigationComposeAndroid" }
+ui = { module = "androidx.compose.ui:ui", version.ref = "ui" }
 ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
 
 [plugins]

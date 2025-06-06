@@ -20,5 +20,5 @@ data class SensorDataEntity(
     val runId: Long,    // foreign key to RunEntity
     val timestamp: Long,
     val sensorType: SensorType,
-    val steps: Int?
+    val stepCount: Float // This will now store the step count
 )

@@ -4,9 +4,7 @@ import android.app.Application
 import android.content.Context
 import android.content.Intent
 import android.location.Location
-import android.os.Build
 import android.util.Log
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
@@ -41,8 +39,7 @@ class RunViewModel(
     val currentRunId: StateFlow<Long?> = _currentRunId
 
     private var currentRunStartTime: Long = 0L
-    private var currentRunLocations = mutableStateListOf<Location>()
-    private var currentRunSensorData = mutableListOf<SensorDataEntity>()
+    private var currentRunLocations = mutableListOf<Location>()
 
     val liveLocationData = mutableStateOf("Lat: N/A, Lng: N/A")
     val liveStepsData = mutableStateOf("Steps: N/A")
@@ -67,8 +64,7 @@ class RunViewModel(
                 }
             }
         }
-
-        // Sensor data collection now fully managed inside SensorService
+        // Sensor tracking is handled by the SensorService
     }
 
     fun startRun() {
@@ -150,7 +146,6 @@ class RunViewModel(
         locationService.stopLocationUpdates()
     }
 
-    // Debug function to export database
     fun exportDatabase(context: Context) {
         val dbName = "run_app_database"
         val dbPath = context.getDatabasePath(dbName)

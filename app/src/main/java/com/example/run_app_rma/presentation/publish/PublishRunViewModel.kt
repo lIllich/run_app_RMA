@@ -1,5 +1,6 @@
 package com.example.run_app_rma.presentation.publish
 
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -12,13 +13,15 @@ import com.example.run_app_rma.data.firestore.repository.RunPostRepository
 import com.example.run_app_rma.data.firestore.repository.UserRepository
 import com.example.run_app_rma.domain.model.RunEntity
 import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import com.google.firebase.firestore.GeoPoint
-import kotlinx.coroutines.flow.MutableStateFlow // Import for MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow // Import for StateFlow
-import kotlinx.coroutines.flow.asStateFlow // Import for asStateFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import java.util.Date
 import java.text.DecimalFormat
+import java.util.Date
 
 
 class PublishRunViewModel(
@@ -28,9 +31,7 @@ class PublishRunViewModel(
     private val firebaseAuth: FirebaseAuth
 ) : ViewModel() {
 
-    private val _localRuns = mutableStateListOf<RunEntity>()
-    val localRuns: List<RunEntity> = _localRuns
-
+    val localRuns = mutableStateListOf<RunEntity>()
     private val _isLoading = mutableStateOf(false)
     val isLoading: State<Boolean> = _isLoading
 
@@ -51,6 +52,11 @@ class PublishRunViewModel(
     val caption: State<String> = _caption
 
     private val decimalFormat = DecimalFormat("#.##")
+    
+    // Event flow za slanje poruka na UI (npr. za Toast)
+    private val _eventFlow = MutableSharedFlow<UiEvent>()
+    val eventFlow = _eventFlow.asSharedFlow()
+
 
     init {
         loadLocalRuns()
@@ -58,22 +64,37 @@ class PublishRunViewModel(
 
     fun loadLocalRuns() {
         viewModelScope.launch {
-            // Only set initial loading if it's the very first load, otherwise rely on isRefreshing
-            if (!_isLoading.value) { // Prevent showing initial loading spinner on subsequent refreshes
-                _isRefreshing.value = true // Set refreshing to true for pull-to-refresh
+            if (!_isLoading.value) {
+                _isRefreshing.value = true
             }
 
             _errorMessage.value = null
-            _successMessage.value = null // Clear messages on refresh
+            _successMessage.value = null
+
             try {
                 val runs = runDao.getAllRuns()
-                _localRuns.clear()
-                _localRuns.addAll(runs)
+                localRuns.clear()
+                localRuns.addAll(runs)
             } catch (e: Exception) {
-                _errorMessage.value = "Greška pri učitavanju lokalnih trčanja: ${e.message}"
+                _eventFlow.emit(UiEvent.ShowToast("Greška pri dohvatu lokalnih trčanja: ${e.message}"))
             } finally {
-                _isLoading.value = false // Ensure initial loading is false (might be true from init)
-                _isRefreshing.value = false // Reset refreshing state after completion/error
+                _isLoading.value = false
+                _isRefreshing.value = false
+            }
+        }
+    }
+
+    fun deleteRun(runId: Long) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                runDao.deleteRunById(runId)
+                localRuns.removeIf { it.id == runId }
+                _eventFlow.emit(UiEvent.ShowToast("Trčanje uspješno izbrisano!"))
+            } catch (e: Exception) {
+                _eventFlow.emit(UiEvent.ShowToast("Greška pri brisanju trčanja: ${e.message}"))
+            } finally {
+                _isLoading.value = false
             }
         }
     }
@@ -139,7 +160,7 @@ class PublishRunViewModel(
                     _errorMessage.value = result.exceptionOrNull()?.message ?: "Greška pri objavi trčanja."
                 }
             } catch (e: Exception) {
-                _errorMessage.value = "Došlo je do greške: ${e.message}"
+                _errorMessage.value = "Greška pri objavi trčanja: ${e.message}"
             } finally {
                 _isLoading.value = false
             }
@@ -159,7 +180,7 @@ class PublishRunViewModel(
                 )
                 userRepository.updateUserProfile(userId, updates)
             }.onFailure { e ->
-                println("Error fetching user profile for stats update: ${e.message}")
+                println("Error updating user profile: ${e.message}")
             }
         }
     }
@@ -167,6 +188,10 @@ class PublishRunViewModel(
     fun clearMessages() {
         _errorMessage.value = null
         _successMessage.value = null
+    }
+
+    sealed class UiEvent {
+        data class ShowToast(val message: String) : UiEvent()
     }
 
     class Factory(
