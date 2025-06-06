@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Comment
 import androidx.compose.material.icons.automirrored.filled.DirectionsRun
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Delete // Import for delete icon
 import androidx.compose.material.icons.filled.Favorite
@@ -34,7 +35,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Divider // Added import for Divider
+import androidx.compose.material3.HorizontalDivider // Added import for HorizontalDivider
 import androidx.compose.material3.DropdownMenu // Import for dropdown menu
 import androidx.compose.material3.DropdownMenuItem // Import for dropdown menu item
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -72,8 +73,8 @@ import com.example.run_app_rma.data.firestore.model.User
 import com.example.run_app_rma.presentation.common.UserCard // Import UserCard
 import androidx.compose.foundation.pager.HorizontalPager // Changed import
 import androidx.compose.foundation.pager.rememberPagerState // Changed import
-import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material3.HorizontalDivider
+import com.google.accompanist.swiperefresh.SwipeRefresh // Import SwipeRefresh
+import com.google.accompanist.swiperefresh.rememberSwipeRefreshState // Import rememberSwipeRefreshState
 import kotlinx.coroutines.launch
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
@@ -95,6 +96,7 @@ fun RunPostScreen(
     val runPost by runPostViewModel.runPost.collectAsState()
     val postUser by runPostViewModel.postUser.collectAsState()
     val isInitialLoading: Boolean by runPostViewModel.isInitialLoading.collectAsState()
+    val isRefreshing by runPostViewModel.isRefreshing.collectAsState() // Observe refreshing state
     val isLoadingAction: Boolean by runPostViewModel.isLoadingAction.collectAsState()
     val errorMessage by runPostViewModel.errorMessage.collectAsState()
     val userLikedPostIds by runPostViewModel.userLikedPostIds.collectAsState()
@@ -112,16 +114,18 @@ fun RunPostScreen(
     val pagerState = rememberPagerState(initialPage = 0, pageCount = { 2 })
     val scope = rememberCoroutineScope()
 
+    val swipeRefreshState = rememberSwipeRefreshState(isRefreshing = isRefreshing) // Initialize SwipeRefreshState
+
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        // Removed combinedClickable from here, as the menu is now in actions
                     ) {
                         Text("Objava Trčanja")
-                        if (isInitialLoading) {
+                        if (isInitialLoading && !isRefreshing) { // Show initial loading only if not refreshing
                             Spacer(modifier = Modifier.width(8.dp))
                             CircularProgressIndicator(
                                 modifier = Modifier.size(20.dp),
@@ -166,289 +170,273 @@ fun RunPostScreen(
             )
         }
     ) { paddingValues ->
-        Column(
+        // Wrap the main content with SwipeRefresh
+        SwipeRefresh(
+            state = swipeRefreshState,
+            onRefresh = { runPost?.id?.let { runPostViewModel.fetchRunPostAndRelatedData(it) } }, // Trigger refresh
             modifier = modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(horizontal = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Top
         ) {
-            if (errorMessage != null) {
-                Text("Greška: $errorMessage", color = MaterialTheme.colorScheme.error)
-                Button(onClick = { runPost?.id?.let { runPostViewModel.fetchRunPostAndRelatedData(it) } }) {
-                    Text("Pokušaj ponovo")
-                }
-            } else if (runPost != null) {
-                val post = runPost!!
-                val currentPostUser = postUser
-
-                // The post deletion DropdownMenu is now part of the TopAppBar actions.
-                // This block is no longer needed here if the menu is strictly in the TopAppBar.
-                // If there were other post-related menus not tied to the TopAppBar, they would remain here.
-                /*
-                DropdownMenu(
-                    expanded = showPostMenu,
-                    onDismissRequest = { showMenu = false }
-                ) {
-                    if (currentUserId == post.userId) { // Check if current user is the post owner
-                        DropdownMenuItem(
-                            text = { Text("Obriši objavu") },
-                            onClick = {
-                                runPostViewModel.deletePost(post.id)
-                                showMenu = false // Dismiss menu after action
-                                onPostDeleted() // Navigate back after deletion
-                            },
-                            leadingIcon = {
-                                Icon(Icons.Default.Delete, contentDescription = "Obriši objavu")
-                            }
-                        )
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Top
+            ) {
+                if (errorMessage != null) {
+                    Text("Greška: $errorMessage", color = MaterialTheme.colorScheme.error)
+                    Button(onClick = { runPost?.id?.let { runPostViewModel.fetchRunPostAndRelatedData(it) } }) {
+                        Text("Pokušaj ponovo")
                     }
-                }
-                */
+                } else if (runPost != null) {
+                    val post = runPost!!
+                    val currentPostUser = postUser
 
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { currentPostUser?.id?.let { onUserClick(it) } }
-                        .padding(vertical = 8.dp)
-                ) {
-                    Image(
-                        painter = if (currentPostUser?.profileImageUrl != null && currentPostUser.profileImageUrl.isNotEmpty()) {
-                            rememberAsyncImagePainter(currentPostUser.profileImageUrl)
-                        } else {
-                            painterResource(R.drawable.ic_profile_placeholder)
-                        },
-                        contentDescription = "Profile Picture",
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape),
-                        contentScale = ContentScale.Crop
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = currentPostUser?.displayName ?: "Nepoznat korisnik",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.weight(1f))
-                    Text(
-                        text = post.timestamp?.let { dateFormat.format(it) } ?: "N/A",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.Gray
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceAround
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.AutoMirrored.Filled.DirectionsRun, contentDescription = "Distance")
-                        val distanceText = if (post.distance < 1000) {
-                            "${decimalFormat.format(post.distance)} m"
-                        } else {
-                            "${decimalFormat.format(post.distance / 1000)} km"
-                        }
-                        Text(distanceText, style = MaterialTheme.typography.bodyLarge)
-                        Text("Udaljenost", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
-                    }
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Default.Speed, contentDescription = "Pace")
-                        Text("${decimalFormat.format(post.avgPace)} min/km", style = MaterialTheme.typography.bodyLarge)
-                        Text("Tempo", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
-                    }
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Default.AccessTime, contentDescription = "Duration")
-                        val durationMillis = post.endTime - post.startTime
-                        val durationText = if (durationMillis < TimeUnit.HOURS.toMillis(1)) {
-                            val minutes = TimeUnit.MILLISECONDS.toMinutes(durationMillis)
-                            val seconds = TimeUnit.MILLISECONDS.toSeconds(durationMillis) - TimeUnit.MINUTES.toSeconds(minutes)
-                            if (minutes == 0L) {
-                                "${seconds} s"
-                            } else {
-                                "${minutes} min i ${seconds} s"
-                            }
-                        } else {
-                            val hours = TimeUnit.MILLISECONDS.toHours(durationMillis)
-                            val minutes = TimeUnit.MILLISECONDS.toMinutes(durationMillis) - TimeUnit.HOURS.toMinutes(hours)
-                            String.format("%02d:%02d", hours, minutes)
-                        }
-                        Text(
-                            text = durationText,
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                        Text("Trajanje", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                if (post.caption.isNotEmpty()) {
-                    Text(
-                        text = post.caption,
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                }
-
-                HorizontalDivider(modifier = Modifier.fillMaxWidth())
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceAround,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Sviđa li vam se objava?",
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.weight(1f),
-                        textAlign = TextAlign.Center
-                    )
-
-                    val isLiked = userLikedPostIds.contains(post.id)
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
-                            .clickable(enabled = !isLoadingAction) { runPostViewModel.toggleLike(post.id, isLiked) }
-                            .weight(1f)
-                            .padding(4.dp),
-                        horizontalArrangement = Arrangement.Center
+                            .fillMaxWidth()
+                            .clickable { currentPostUser?.id?.let { onUserClick(it) } }
+                            .padding(vertical = 8.dp)
                     ) {
-                        if (isLoadingAction) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp),
-                                strokeWidth = 2.dp
-                            )
-                        } else {
-                            Icon(
-                                imageVector = if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                                contentDescription = "Like",
-                                tint = if (isLiked) Color.Red else MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("${post.likesCount}", style = MaterialTheme.typography.bodyMedium)
+                        Image(
+                            painter = if (currentPostUser?.profileImageUrl != null && currentPostUser.profileImageUrl.isNotEmpty()) {
+                                rememberAsyncImagePainter(currentPostUser.profileImageUrl)
+                            } else {
+                                painterResource(R.drawable.ic_profile_placeholder)
+                            },
+                            contentDescription = "Profile Picture",
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape),
+                            contentScale = ContentScale.Crop
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = currentPostUser?.displayName ?: "Nepoznat korisnik",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.weight(1f))
+                        Text(
+                            text = post.timestamp?.let { dateFormat.format(it) } ?: "N/A",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.Gray
+                        )
                     }
-                }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                TabRow(
-                    selectedTabIndex = pagerState.currentPage,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Tab(
-                        selected = pagerState.currentPage == 0,
-                        onClick = { scope.launch { pagerState.animateScrollToPage(0) } },
-                        text = { Text("Komentari (${comments.size})") }
-                    )
-                    Tab(
-                        selected = pagerState.currentPage == 1,
-                        onClick = { scope.launch { pagerState.animateScrollToPage(1) } },
-                        text = { Text("Sviđa se (${likedUsers.size})") }
-                    )
-                }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceAround
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.AutoMirrored.Filled.DirectionsRun, contentDescription = "Distance")
+                            val distanceText = if (post.distance < 1000) {
+                                "${decimalFormat.format(post.distance)} m"
+                            } else {
+                                "${decimalFormat.format(post.distance / 1000)} km"
+                            }
+                            Text(distanceText, style = MaterialTheme.typography.bodyLarge)
+                            Text("Udaljenost", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                        }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.Default.Speed, contentDescription = "Pace")
+                            Text("${decimalFormat.format(post.avgPace)} min/km", style = MaterialTheme.typography.bodyLarge)
+                            Text("Tempo", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                        }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.Default.AccessTime, contentDescription = "Duration")
+                            val durationMillis = post.endTime - post.startTime
+                            val durationText = if (durationMillis < TimeUnit.HOURS.toMillis(1)) {
+                                val minutes = TimeUnit.MILLISECONDS.toMinutes(durationMillis)
+                                val seconds = TimeUnit.MILLISECONDS.toSeconds(durationMillis) - TimeUnit.MINUTES.toSeconds(minutes)
+                                if (minutes == 0L) {
+                                    "${seconds} s"
+                                } else {
+                                    "${minutes} min i ${seconds} s"
+                                }
+                            } else {
+                                val hours = TimeUnit.MILLISECONDS.toHours(durationMillis)
+                                val minutes = TimeUnit.MILLISECONDS.toMinutes(durationMillis) - TimeUnit.HOURS.toMinutes(hours)
+                                String.format("%02d:%02d", hours, minutes)
+                            }
+                            Text(
+                                text = durationText,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                            Text("Trajanje", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                        }
+                    }
 
-                HorizontalPager(
-                    state = pagerState,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                ) { page ->
-                    when (page) {
-                        0 -> {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    if (post.caption.isNotEmpty()) {
+                        Text(
+                            text = post.caption,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
+
+                    HorizontalDivider(modifier = Modifier.fillMaxWidth())
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceAround,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Sviđa li vam se objava?",
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.weight(1f),
+                            textAlign = TextAlign.Center
+                        )
+
+                        val isLiked = userLikedPostIds.contains(post.id)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .clickable(enabled = !isLoadingAction) { runPostViewModel.toggleLike(post.id, isLiked) }
+                                .weight(1f)
+                                .padding(4.dp),
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            if (isLoadingAction) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(24.dp),
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                    contentDescription = "Like",
+                                    tint = if (isLiked) Color.Red else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("${post.likesCount}", style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    TabRow(
+                        selectedTabIndex = pagerState.currentPage,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Tab(
+                            selected = pagerState.currentPage == 0,
+                            onClick = { scope.launch { pagerState.animateScrollToPage(0) } },
+                            text = { Text("Komentari (${comments.size})") }
+                        )
+                        Tab(
+                            selected = pagerState.currentPage == 1,
+                            onClick = { scope.launch { pagerState.animateScrollToPage(1) } },
+                            text = { Text("Sviđa se (${likedUsers.size})") }
+                        )
+                    }
+
+                    HorizontalPager(
+                        state = pagerState,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                    ) { page ->
+                        when (page) {
+                            0 -> {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(horizontal = 16.dp, vertical = 8.dp)
                                 ) {
-                                    TextField(
-                                        value = commentInput,
-                                        onValueChange = { runPostViewModel.onCommentInputChanged(it) },
-                                        placeholder = { Text("Dodaj komentar...") },
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    IconButton(
-                                        onClick = { runPostViewModel.addComment() },
-                                        enabled = commentInput.isNotBlank() && !isLoadingAction
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
-                                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Pošalji komentar")
+                                        TextField(
+                                            value = commentInput,
+                                            onValueChange = { runPostViewModel.onCommentInputChanged(it) },
+                                            placeholder = { Text("Dodaj komentar...") },
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        IconButton(
+                                            onClick = { runPostViewModel.addComment() },
+                                            enabled = commentInput.isNotBlank() && !isLoadingAction
+                                        ) {
+                                            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Pošalji komentar")
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(16.dp))
+
+                                    if (comments.isEmpty()) {
+                                        Column(
+                                            modifier = Modifier.fillMaxSize(),
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            verticalArrangement = Arrangement.Center
+                                        ) {
+                                            Text("Nema komentara za prikaz.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                    } else {
+                                        LazyColumn(
+                                            modifier = Modifier.fillMaxSize(),
+                                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            items(comments, key = { it.id }) { comment ->
+                                                val commenter = commentUsers[comment.userId]
+                                                CommentItem(
+                                                    comment = comment,
+                                                    commenter = commenter,
+                                                    dateFormat = dateFormat,
+                                                    currentUserId = currentUserId, // Pass current user ID
+                                                    postOwnerId = post.userId, // Pass post owner ID
+                                                    onUserClick = onUserClick,
+                                                    onDeleteComment = { commentId -> runPostViewModel.deleteComment(commentId) } // Pass delete lambda
+                                                )
+                                            }
+                                        }
                                     }
                                 }
-
-                                Spacer(modifier = Modifier.height(16.dp))
-
-                                if (comments.isEmpty()) {
+                            }
+                            1 -> {
+                                if (likedUsers.isEmpty()) {
                                     Column(
-                                        modifier = Modifier.fillMaxSize(),
+                                        modifier = Modifier.fillMaxSize().padding(16.dp),
                                         horizontalAlignment = Alignment.CenterHorizontally,
                                         verticalArrangement = Arrangement.Center
                                     ) {
-                                        Text("Nema komentara za prikaz.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text("Nema lajkova za prikaz.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                 } else {
                                     LazyColumn(
                                         modifier = Modifier.fillMaxSize(),
+                                        contentPadding = PaddingValues(16.dp),
                                         verticalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
-                                        items(comments, key = { it.id }) { comment ->
-                                            val commenter = commentUsers[comment.userId]
-                                            CommentItem(
-                                                comment = comment,
-                                                commenter = commenter,
-                                                dateFormat = dateFormat,
-                                                currentUserId = currentUserId, // Pass current user ID
-                                                postOwnerId = post.userId, // Pass post owner ID
-                                                onUserClick = onUserClick,
-                                                onDeleteComment = { commentId -> runPostViewModel.deleteComment(commentId) } // Pass delete lambda
+                                        items(likedUsers, key = { it.id }) { user ->
+                                            UserCard(
+                                                user = user,
+                                                onClick = { userId -> onUserClick(userId) },
+                                                showFollowButton = false
                                             )
                                         }
                                     }
                                 }
                             }
                         }
-                        1 -> {
-                            if (likedUsers.isEmpty()) {
-                                Column(
-                                    modifier = Modifier.fillMaxSize().padding(16.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Center
-                                ) {
-                                    Text("Nema lajkova za prikaz.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                            } else {
-                                LazyColumn(
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentPadding = PaddingValues(16.dp),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    items(likedUsers, key = { it.id }) { user ->
-                                        UserCard(
-                                            user = user,
-                                            onClick = { userId -> onUserClick(userId) },
-                                            showFollowButton = false
-                                        )
-                                    }
-                                }
-                            }
-                        }
                     }
+                } else {
+                    Text("Objava nije pronađena.")
                 }
-            } else {
-                Text("Objava nije pronađena.")
             }
         }
     }

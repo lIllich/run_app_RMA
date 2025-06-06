@@ -38,6 +38,11 @@ class RunPostViewModel(
     private val _isInitialLoading = MutableStateFlow(true)
     val isInitialLoading: StateFlow<Boolean> = _isInitialLoading.asStateFlow()
 
+    // New: State for pull-to-refresh
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
+
     // State for specific actions like liking or commenting
     private val _isLoadingAction = MutableStateFlow(false)
     val isLoadingAction: StateFlow<Boolean> = _isLoadingAction.asStateFlow()
@@ -89,7 +94,11 @@ class RunPostViewModel(
     }
 
     fun fetchRunPostAndRelatedData(postId: String) {
-        _isInitialLoading.value = true // Set initial loading to true at the start of a full data fetch
+        // Only set initial loading if it's the very first load, otherwise rely on isRefreshing
+        if (!_isInitialLoading.value) { // Prevent showing initial loading spinner on subsequent refreshes
+            _isRefreshing.value = true // Set refreshing to true for pull-to-refresh
+        }
+
         _errorMessage.value = null
         Log.d(TAG, "Fetching data for post ID: $postId")
 
@@ -170,7 +179,8 @@ class RunPostViewModel(
                 Log.e(TAG, "Unexpected error in fetchRunPostAndRelatedData", e)
             } finally {
                 _isInitialLoading.value = false // Set initial loading to false after completion/error
-                Log.d(TAG, "Finished fetching data. isInitialLoading: ${_isInitialLoading.value}")
+                _isRefreshing.value = false // Reset refreshing state after completion/error
+                Log.d(TAG, "Finished fetching data. isInitialLoading: ${_isInitialLoading.value}, isRefreshing: ${_isRefreshing.value}")
             }
         }
     }
