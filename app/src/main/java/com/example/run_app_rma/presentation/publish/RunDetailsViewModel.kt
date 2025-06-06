@@ -1,5 +1,6 @@
 package com.example.run_app_rma.presentation.publish
 
+import android.location.Location
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
@@ -54,16 +55,66 @@ class RunDetailsViewModel(
 
     init {
         loadRunDetails()
-        loadLocationData()
+//        loadLocationData()
+    }
+
+    private fun recalculateRun(run: RunEntity, locationData: List<LocationDataEntity>): RunEntity {
+        val sorted = locationData.sortedBy { it.timestamp }
+        println("here 1")
+
+        if (sorted.isEmpty()) {
+            println("here x")
+            // If there's no location data, set distance and pace to 0 and end time to start time.
+            return run.copy(distance = 0f, avgPace = 0f, endTime = run.startTime)
+        }
+
+        var totalDistance = 0.0
+        for (i in 0 until sorted.size - 1) {
+            val start = sorted[i]
+            val end = sorted[i + 1]
+
+            totalDistance += calculateHaversineDistance(
+                lat1 = start.lat,
+                lon1 = start.lon,
+                lat2 = end.lat,
+                lon2 = end.lon
+            )
+        }
+
+        val durationMillis = sorted.last().timestamp - sorted.first().timestamp
+        println(sorted.last().timestamp)
+        println(sorted.first().timestamp)
+        println(durationMillis)
+        val durationMinutes = durationMillis / (1000f * 60f)
+        val distanceKm = totalDistance / 1000.0
+        val avgPace = if (distanceKm > 0.0) durationMinutes / distanceKm else 0.0
+
+        return run.copy(
+            distance = totalDistance.toFloat(),
+            avgPace = avgPace.toFloat(),
+            startTime = sorted.first().timestamp,
+            endTime = sorted.last().timestamp
+        )
     }
 
     private fun loadRunDetails() {
         viewModelScope.launch {
             _isLoading.value = true
             _errorMessage.value = null
+
             try {
-                // Ensure getRunById exists in your RunDao.kt
-                _runDetails.value = runDao.getRunById(runId)
+                val run = runDao.getRunById(runId)
+                val locationData = locationDao.getLocationDataForRun(runId)
+                _locationData.value = locationData
+
+                if (run != null) {
+                    val updatedRun = recalculateRun(run, locationData)
+                    runDao.update(updatedRun) // Save the recalculated run to Room DB
+                    _runDetails.value = updatedRun // Update the UI StateFlow
+                } else {
+                    _errorMessage.value = "Trčanje s ID-jem $runId nije pronađeno."
+                }
+
             } catch (e: Exception) {
                 _errorMessage.value = "Greška pri dohvatu detalja trčanja: ${e.message}"
             } finally {
@@ -72,19 +123,19 @@ class RunDetailsViewModel(
         }
     }
 
-    private fun loadLocationData() {
-        viewModelScope.launch {
-            _isLoading.value = true
-            _errorMessage.value = null
-            try {
-                _locationData.value = locationDao.getLocationDataForRun(runId)
-            } catch (e: Exception) {
-                _errorMessage.value = "Greška pri dohvatu lokacijskih podataka: ${e.message}"
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
+//    private fun loadLocationData() {
+//        viewModelScope.launch {
+//            _isLoading.value = true
+//            _errorMessage.value = null
+//            try {
+//                _locationData.value = locationDao.getLocationDataForRun(runId)
+//            } catch (e: Exception) {
+//                _errorMessage.value = "Greška pri dohvatu lokacijskih podataka: ${e.message}"
+//            } finally {
+//                _isLoading.value = false
+//            }
+//        }
+//    }
 
     fun onCaptionChanged(newCaption: String) {
         _caption.value = newCaption
@@ -199,17 +250,17 @@ class RunDetailsViewModel(
         return "${DecimalFormat("#.##").format(elevationGain)} m"
     }
 
-    fun getRouteLength(locationData: List<LocationDataEntity>): String {
-        if (locationData.size < 2) return "N/A"
-
-        var totalDistance = 0.0
-        for (i in 1 until locationData.size) {
-            val loc1 = locationData[i - 1]
-            val loc2 = locationData[i]
-            totalDistance += calculateHaversineDistance(loc1.lat, loc1.lon, loc2.lat, loc2.lon)
-        }
-        return "${DecimalFormat("#.##").format(totalDistance / 1000)} km"
-    }
+//    fun getRouteLength(locationData: List<LocationDataEntity>): String {
+//        if (locationData.size < 2) return "N/A"
+//
+//        var totalDistance = 0.0
+//        for (i in 1 until locationData.size) {
+//            val loc1 = locationData[i - 1]
+//            val loc2 = locationData[i]
+//            totalDistance += calculateHaversineDistance(loc1.lat, loc1.lon, loc2.lat, loc2.lon)
+//        }
+//        return "${DecimalFormat("#.##").format(totalDistance / 1000)} km"
+//    }
 
     private fun calculateHaversineDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
         val R = 6371e3 // metres

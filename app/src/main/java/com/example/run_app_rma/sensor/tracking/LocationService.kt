@@ -13,8 +13,8 @@ class LocationService(context: Context) {
         Priority.PRIORITY_HIGH_ACCURACY,
         3000L // interval in milliseconds
     ).apply {
-        setMinUpdateIntervalMillis(2000L)    // Fastest update
-        setWaitForAccurateLocation(true)     // Optional but useful for GPS
+        setMinUpdateIntervalMillis(2000L)    // fastest update
+        setWaitForAccurateLocation(true)
     }.build()
 
     private var locationCallback: LocationCallback? = null

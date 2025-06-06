@@ -9,22 +9,15 @@ import android.hardware.SensorManager
 class SensorService(context: Context) : SensorEventListener {
 
     private val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
-    private val accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-    private val gyroscope = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
+    private val stepCounter = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)
 
-    private var onAccelerometerData: ((FloatArray) -> Unit)? = null
-    private var onGyroscopeData: ((FloatArray) -> Unit)? = null
+    private var onStepCounterData: ((Int) -> Unit)? = null
 
     fun startListening(
-        onAccelerometerData: (FloatArray) -> Unit,
-        onGyroscopeData: (FloatArray) -> Unit
+        onStepCounterData: (Int) -> Unit
     ) {
-        this.onAccelerometerData = onAccelerometerData
-        this.onGyroscopeData = onGyroscopeData
-        accelerometer?.let {
-            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
-        }
-        gyroscope?.let {
+        this.onStepCounterData = onStepCounterData
+        stepCounter?.let {
             sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
         }
     }
@@ -35,12 +28,11 @@ class SensorService(context: Context) : SensorEventListener {
 
     override fun onSensorChanged(event: SensorEvent) {
         when (event.sensor.type) {
-            Sensor.TYPE_ACCELEROMETER -> onAccelerometerData?.invoke(event.values)
-            Sensor.TYPE_GYROSCOPE -> onGyroscopeData?.invoke(event.values)
+            Sensor.TYPE_STEP_COUNTER -> onStepCounterData?.invoke(event.values[0].toInt())
         }
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
-        // You can log or handle accuracy changes if needed.
+
     }
 }

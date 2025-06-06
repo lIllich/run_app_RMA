@@ -10,10 +10,13 @@ import androidx.lifecycle.ViewModelProvider // Import ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.run_app_rma.data.dao.LocationDao
 import com.example.run_app_rma.data.dao.RunDao
+import com.example.run_app_rma.data.dao.SensorDao
 import com.example.run_app_rma.domain.model.LocationDataEntity
 import com.example.run_app_rma.domain.model.RunEntity
+import com.example.run_app_rma.domain.model.SensorDataEntity
 import com.example.run_app_rma.domain.model.SensorType
 import com.example.run_app_rma.sensor.tracking.LocationService
+import com.example.run_app_rma.sensor.tracking.SensorService
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -23,7 +26,9 @@ import java.io.File
 class RunViewModel(
     private val runDao: RunDao,
     private val locationDao: LocationDao,
-    private val locationService: LocationService
+    private val sensorDao: SensorDao,
+    private val locationService: LocationService,
+    private val sensorService: SensorService
 ) : ViewModel() {
 
     private val _isTracking = MutableStateFlow(false)
@@ -38,6 +43,9 @@ class RunViewModel(
     private var LocationJob: Job? = null
 
     val liveLocationData = mutableStateOf("Lat: N/A, Lng: N/A")
+    val liveSensorData = mutableStateOf("Steps: N/A")
+    private var initialStepCount: Int = 0
+    private var currentStepCount: Int = 0
 
     init {
         // inicijalizacija servisa za prikaz u stvarnom vremenu
@@ -60,6 +68,29 @@ class RunViewModel(
                 }
             }
         }
+
+        sensorService.startListening { steps ->
+            liveSensorData.value = "Steps: $currentStepCount"
+
+            if (_isTracking.value) {
+                if (initialStepCount == 0) {
+                    initialStepCount = steps // Set initial step count when tracking starts
+                }
+                currentStepCount = steps - initialStepCount // Calculate steps taken during the run
+
+                viewModelScope.launch {
+                    val sensorEntity = SensorDataEntity(
+                        runId = _currentRunId.value!!,
+                        timestamp = System.currentTimeMillis(),
+                        sensorType = SensorType.PEDOMETER,
+                        stepCount = currentStepCount.toFloat()
+                    )
+                    sensorDao.insertSensorData(sensorEntity)
+                }
+            } else {
+                initialStepCount = 0    // reset when not tracking
+            }
+        }
     }
 
     fun startRun() {
@@ -68,13 +99,16 @@ class RunViewModel(
         _isTracking.value = true
         currentRunStartTime = System.currentTimeMillis()
         currentRunLocations.clear()
+        initialStepCount = 0    // reset initial step count at the start of a new run
+        currentStepCount = 0
 
         viewModelScope.launch {
             val newRun = RunEntity(
                 startTime = currentRunStartTime,
                 endTime = null,
                 distance = null,
-                avgPace = null
+                avgPace = null,
+                steps = 0
             )
             val runId = runDao.insert(newRun)
             _currentRunId.value = runId
@@ -107,29 +141,35 @@ class RunViewModel(
                 startTime = currentRunStartTime,
                 endTime = endTime,
                 distance = totalDistance,
-                avgPace = avgPace
+                avgPace = avgPace,
+                steps = currentStepCount
             )
             runDao.update(updatedRun)
 
             _currentRunId.value = null
+            initialStepCount = 0    // reset for the next run
+            currentStepCount = 0
         }
     }
 
     override fun onCleared() {
         super.onCleared()
         locationService.stopLocationUpdates()
+        sensorService.stopListening()
     }
 
     // Factory for RunViewModel
     class Factory(
         private val runDao: RunDao,
         private val locationDao: LocationDao,
-        private val locationService: LocationService
+        private val sensorDao: SensorDao,
+        private val locationService: LocationService,
+        private val sensorService: SensorService
     ) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(RunViewModel::class.java)) {
                 @Suppress("UNCHECKED_CAST")
-                return RunViewModel(runDao, locationDao, locationService) as T
+                return RunViewModel(runDao, locationDao, sensorDao, locationService, sensorService) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class")
         }

@@ -78,18 +78,23 @@ class MainActivity : ComponentActivity() {
         val cameraGranted = permissions[android.Manifest.permission.CAMERA] ?: false
         val readExternalStorageGranted = permissions[android.Manifest.permission.READ_EXTERNAL_STORAGE] ?: false
         val readMediaImagesGranted = permissions[android.Manifest.permission.READ_MEDIA_IMAGES] ?: false
+        val activityRecognitionGranted = permissions[android.Manifest.permission.ACTIVITY_RECOGNITION] ?: false
 
         if (fineLocationGranted && coarseLocationGranted) {
             Toast.makeText(this, "Location permissions granted.", Toast.LENGTH_SHORT).show()
         } else {
             Toast.makeText(this, "Location permissions denied.", Toast.LENGTH_SHORT).show()
         }
-
         if (cameraGranted) {
             Toast.makeText(this, "Camera permission granted.", Toast.LENGTH_SHORT).show()
         }
         if (readExternalStorageGranted || readMediaImagesGranted) {
             Toast.makeText(this, "Read storage permission granted.", Toast.LENGTH_SHORT).show()
+        }
+        if (activityRecognitionGranted) {
+            Toast.makeText(this, "Activity recognition permission granted.", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(this, "Activity recognition permission denied.", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -115,7 +120,8 @@ class MainActivity : ComponentActivity() {
                 android.Manifest.permission.CAMERA,
                 android.Manifest.permission.READ_EXTERNAL_STORAGE,
                 android.Manifest.permission.WRITE_EXTERNAL_STORAGE,
-                android.Manifest.permission.READ_MEDIA_IMAGES
+                android.Manifest.permission.READ_MEDIA_IMAGES,
+                android.Manifest.permission.ACTIVITY_RECOGNITION
             )
         )
 
@@ -143,7 +149,9 @@ class MainActivity : ComponentActivity() {
                                 factory = RunViewModel.Factory(
                                     appDatabase.runDao(),
                                     appDatabase.locationDao(),
-                                    locationService
+                                    appDatabase.sensorDao(),
+                                    locationService,
+                                    sensorService
                                 )
                             )
 

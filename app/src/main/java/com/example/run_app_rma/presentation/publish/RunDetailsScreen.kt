@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.run_app_rma.data.db.AppDatabase
@@ -26,6 +27,8 @@ import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.ceil
+import kotlin.math.floor
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -104,7 +107,8 @@ fun RunDetailsScreen(
                 Text("Prosječni tempo: ${run.avgPace?.let { decimalFormat.format(it) } ?: "N/A"} min/km")
                 Text("Prosječna brzina: ${runDetailsViewModel.getAverageSpeed(run)}")
                 Text("Razlika u elevaciji: ${runDetailsViewModel.getElevationGain(locationData)}")
-                Text("Duljina rute: ${runDetailsViewModel.getRouteLength(locationData)}")
+//                Text("Duljina rute: ${runDetailsViewModel.getRouteLength(locationData)}")
+                Text("Koraci: ${run.steps?.toString() ?: "N/A"}")
 
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -121,7 +125,7 @@ fun RunDetailsScreen(
                         onClick = { onViewMapClick(runId) }, // Pass runId to the navigation lambda
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Prikaz karte preko cijelog zaslona")
+                        Text("Prikaži kartu")
                     }
                     Spacer(modifier = Modifier.height(16.dp))
                 }
@@ -169,39 +173,138 @@ fun RunDetailsScreen(
     }
 }
 
+// elevation graph smoothing
+fun movingAverage(data: List<Float>, windowSize: Int): List<Float> {
+    if (data.size <= windowSize) return data
+    val result = mutableListOf<Float>()
+    for (i in data.indices) {
+        val start = maxOf(0, i - windowSize / 2)
+        val end = minOf(data.size - 1, i + windowSize / 2)
+        val window = data.subList(start, end + 1)
+        result.add(window.average().toFloat())
+    }
+    return result
+}
+
 @Composable
 fun ElevationGraph(locationData: List<LocationDataEntity>) {
+    if (locationData.isEmpty()) return
+
     val altitudes = locationData.map { it.alt }
-    if (altitudes.isEmpty()) return
+    val timestamps = locationData.map { it.timestamp }
 
     val minAlt = altitudes.minOrNull() ?: 0.0
     val maxAlt = altitudes.maxOrNull() ?: 0.0
+    val elevationRange = maxAlt - minAlt
+
+    val useKilometers = elevationRange >= 1000
+    val yUnitLabel = if (useKilometers) "km" else "m"
+
+    val rawAlts = altitudes.map {
+        val value = if (useKilometers) it / 1000.0 else it
+        value.toFloat()
+    }
+
+    // Smooth with moving average (e.g., windowSize = 5)
+    val normalizedAlts = movingAverage(rawAlts, windowSize = 5)
+
+    val startTime = timestamps.firstOrNull() ?: 0L
 
     Canvas(
         modifier = Modifier
             .fillMaxWidth()
-            .height(200.dp)
-            .padding(8.dp)
+            .height(260.dp)
+            .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
         val width = size.width
         val height = size.height
-        val xStep = width / (altitudes.size - 1).toFloat()
+
+        // Lijevi rub se koristi za Y-osi (brojevi + oznaka) → gotovo uz rub
+        val yAxisOffset = 0f // minimalni razmak od lijevog ruba
+        val yAxisLabelWidth = 80f // prostor za brojeve Y-osi
+        val leftPadding = yAxisOffset + yAxisLabelWidth // ovo gura graf udesno od Y-osi
+        val rightPadding = 20f
+        val bottomPadding = 50f
+        val topPadding = 50f
+
+        val graphPaddingX = 20f // dodatni razmak između grafa i Y-osi
+        val graphPaddingY = 20f // razmak između grafa i vrha/dna grafa
+
+        val graphWidth = width - leftPadding - rightPadding
+        val graphHeight = height - bottomPadding - topPadding
+
+        val xStep = (graphWidth - 2 * graphPaddingX) / (normalizedAlts.size - 1).coerceAtLeast(1)
+
+        val minY = floor((normalizedAlts.minOrNull() ?: 0f))
+        val maxY = ceil((normalizedAlts.maxOrNull() ?: 0f))
+        val yRange = maxY - minY
 
         val path = Path()
-        if (altitudes.isNotEmpty()) {
-            val firstPointY = height - ((altitudes.first() - minAlt) / (maxAlt - minAlt).toFloat()) * height
-            path.moveTo(0f, firstPointY.toFloat())
+        path.moveTo(
+            leftPadding + graphPaddingX, // ⬅️ linija grafa počinje nakon Y-osi + unutarnji razmak
+            topPadding + graphPaddingY + (graphHeight - 2 * graphPaddingY) * (1f - (normalizedAlts.first() - minY) / yRange)
+        )
 
-            for (i in 1 until altitudes.size) {
-                val x = i * xStep
-                val y = height - ((altitudes[i] - minAlt) / (maxAlt - minAlt).toFloat()) * height
-                path.lineTo(x, y.toFloat())
-            }
+        for (i in 1 until normalizedAlts.size) {
+            val x = leftPadding + graphPaddingX + i * xStep
+            val y = topPadding + graphPaddingY + (graphHeight - 2 * graphPaddingY) * (1f - (normalizedAlts[i] - minY) / yRange)
+            path.lineTo(x, y)
         }
+
         drawPath(
             path = path,
             color = Color.Blue,
             style = Stroke(width = 3f)
         )
+
+        val textPaint = android.graphics.Paint().apply {
+            color = android.graphics.Color.WHITE
+            textSize = 34f
+            typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
+        }
+
+        val yLabelCount = 7
+        for (i in 0 until yLabelCount) {
+            val fraction = i / (yLabelCount - 1).toFloat()
+            val value = maxY - fraction * yRange
+            val y = topPadding + graphHeight * fraction
+            val label = value.toInt().toString()
+
+            drawContext.canvas.nativeCanvas.drawText(
+                label,
+                yAxisOffset,
+                y + 10f,
+                textPaint
+            )
+        }
+
+        // Mjerna jedinica na vrhu Y-osi (pomaknuta malo iznad prve oznake)
+        drawContext.canvas.nativeCanvas.drawText(
+            yUnitLabel,
+            yAxisOffset,
+            topPadding - 40f,
+            textPaint
+        )
+
+        val xLabelCount = 5
+        val step = (normalizedAlts.size - 1) / (xLabelCount - 1).coerceAtLeast(1)
+
+        for (i in 0 until xLabelCount) {
+            val index = i * step
+            if (index >= timestamps.size) continue
+
+            val x = leftPadding + graphPaddingX + index * xStep // ⬅️ isto pravilo pomaka kao graf
+            val elapsedMillis = timestamps[index] - startTime
+            val minutes = elapsedMillis / 60000
+            val seconds = (elapsedMillis / 1000) % 60
+            val timeLabel = String.format("%d:%02d", minutes, seconds)
+
+            drawContext.canvas.nativeCanvas.drawText(
+                timeLabel,
+                x - 30f,
+                height - 10f,
+                textPaint
+            )
+        }
     }
 }

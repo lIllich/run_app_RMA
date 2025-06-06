@@ -26,6 +26,7 @@ fun RunningScreen(
 ) {
     val isTracking by runViewModel.isTracking.collectAsState()
     val locationText by runViewModel.liveLocationData
+    val sensorText by runViewModel.liveSensorData
 
     // debug
     val context = LocalContext.current
@@ -39,7 +40,9 @@ fun RunningScreen(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(text = locationText)
+        Spacer(modifier = Modifier.height(24.dp))
 
+        Text(text = sensorText)
         Spacer(modifier = Modifier.height(24.dp))
 
         if(!isTracking) {
