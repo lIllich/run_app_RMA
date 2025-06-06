@@ -5,30 +5,22 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.run_app_rma.domain.model.RunEntity
+import com.google.accompanist.swiperefresh.SwipeRefresh
+import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
+import kotlinx.coroutines.flow.collectLatest
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
-import java.util.Locale
-import java.util.Date
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.platform.LocalContext
-import kotlinx.coroutines.flow.collectLatest
-import com.google.accompanist.swiperefresh.SwipeRefresh // Import SwipeRefresh
-import com.google.accompanist.swiperefresh.rememberSwipeRefreshState // Import rememberSwipeRefreshState
-
+import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -39,9 +31,9 @@ fun PublishRunScreen(
 ) {
     val localRuns = publishRunViewModel.localRuns
     val isLoading by publishRunViewModel.isLoading
-//    val errorMessage by publishRunViewModel.errorMessage
-//    val successMessage by publishRunViewModel.successMessage
-    val isRefreshing by publishRunViewModel.isRefreshing.collectAsState() // Observe refreshing state
+    val isRefreshing by publishRunViewModel.isRefreshing.collectAsState()
+    val errorMessage by publishRunViewModel.errorMessage
+    val successMessage by publishRunViewModel.successMessage
     val selectedRun by publishRunViewModel.selectedRun
     val caption by publishRunViewModel.caption
 
@@ -73,30 +65,26 @@ fun PublishRunScreen(
             modifier = Modifier.padding(bottom = 16.dp)
         )
 
-        // Only show CircularProgressIndicator if it's the initial load AND not refreshing
         if (isLoading && !isRefreshing) {
             CircularProgressIndicator(modifier = Modifier.padding(16.dp))
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Wrap the content of the LazyColumn (which holds the list of runs) with SwipeRefresh
-        // The TextField and Button below are outside the refresh scope, which is fine.
         SwipeRefresh(
             state = swipeRefreshState,
-            onRefresh = { publishRunViewModel.loadLocalRuns() }, // Trigger refresh
+            onRefresh = { publishRunViewModel.loadLocalRuns() },
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f) // Ensures SwipeRefresh takes available height
+                .weight(1f)
         ) {
             Column(
-                modifier = Modifier.fillMaxSize(), // Fill the space provided by SwipeRefresh
+                modifier = Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Only show "No runs" if list is empty and not currently loading or refreshing
                 if (localRuns.isEmpty() && !isLoading && !isRefreshing) {
                     Text("Nema lokalno spremljenih trčanja za objavu.")
-                } else if (localRuns.isNotEmpty() || (isLoading && !isRefreshing)) {
+                } else {
                     Text("Odaberite trčanje za objavu:", style = MaterialTheme.typography.titleMedium)
                     Spacer(modifier = Modifier.height(8.dp))
 
@@ -119,7 +107,6 @@ fun PublishRunScreen(
             }
         }
 
-        // Content outside the SwipeRefresh:
         Spacer(modifier = Modifier.height(16.dp))
 
         selectedRun?.let { run ->
@@ -160,16 +147,19 @@ fun RunItemCard(
     decimalFormat: DecimalFormat,
     isSelected: Boolean,
     onRunSelected: (Long) -> Unit,
-    onDeleteRun: (Long) -> Unit // New parameter for delete action
+    onDeleteRun: (Long) -> Unit
 ) {
-    var expanded by remember { mutableStateOf(false) } // State for dropdown menu
+    var expanded by remember { mutableStateOf(false) }
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onRunSelected(run.id) },
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
+            containerColor = if (isSelected)
+                MaterialTheme.colorScheme.primaryContainer
+            else
+                MaterialTheme.colorScheme.surfaceVariant
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
@@ -181,32 +171,18 @@ fun RunItemCard(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Trčanje započeto: ${dateFormat.format(Date(run.startTime))}",
-                    style = MaterialTheme.typography.bodyMedium
-                )
+                Text("Trčanje započeto: ${dateFormat.format(Date(run.startTime))}", style = MaterialTheme.typography.bodyMedium)
                 run.endTime?.let {
-                    Text(
-                        text = "Završeno: ${dateFormat.format(Date(it))}",
-                        style = MaterialTheme.typography.bodySmall
-                    )
+                    Text("Završeno: ${dateFormat.format(Date(it))}", style = MaterialTheme.typography.bodySmall)
                 }
                 run.distance?.let {
-                    Text(
-                        text = "Udaljenost: ${decimalFormat.format(it / 1000)} km",
-                        style = MaterialTheme.typography.bodySmall
-                    )
+                    Text("Udaljenost: ${decimalFormat.format(it / 1000)} km", style = MaterialTheme.typography.bodySmall)
                 }
                 run.avgPace?.let {
-                    Text(
-                        text = "Prosječni tempo: ${decimalFormat.format(it)} min/km",
-                        style = MaterialTheme.typography.bodySmall
-                    )
+                    Text("Prosječni tempo: ${decimalFormat.format(it)} min/km", style = MaterialTheme.typography.bodySmall)
                 }
             }
-            Box(
-                modifier = Modifier.wrapContentSize(Alignment.TopEnd)
-            ) {
+            Box(modifier = Modifier.wrapContentSize(Alignment.TopEnd)) {
                 IconButton(onClick = { expanded = true }) {
                     Icon(Icons.Default.MoreVert, contentDescription = "Više opcija")
                 }

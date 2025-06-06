@@ -32,6 +32,7 @@ fun RunningScreen(
     val context = LocalContext.current
     //***
 
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -40,6 +41,7 @@ fun RunningScreen(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(text = locationText)
+
         Spacer(modifier = Modifier.height(24.dp))
 
         Text(text = sensorText)
