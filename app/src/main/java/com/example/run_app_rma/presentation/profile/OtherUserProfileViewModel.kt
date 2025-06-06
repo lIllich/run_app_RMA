@@ -109,7 +109,8 @@ class OtherUserProfileViewModel(
                 }
 
                 // Fetch user's posts
-                val postsResult = runPostRepository.getRunPostForUser(userId)
+                // Corrected: Use getRunPostsByUsers which takes a list of user IDs
+                val postsResult = runPostRepository.getRunPostsByUsers(listOf(userId))
                 if (postsResult.isSuccess) {
                     _viewedUserPosts.value = postsResult.getOrNull()?.sortedByDescending { it.timestamp } ?: emptyList()
                 } else {
@@ -155,17 +156,27 @@ class OtherUserProfileViewModel(
         val currentId = currentLoggedInUserId
         if (currentId == null) {
             _isFollowingViewedUser.value = false
+            Log.w(TAG, "fetchFollowingStatus: currentId is null, cannot check following status.")
             return
         }
         if (currentId == viewedUserId) { // Cannot follow yourself
             _isFollowingViewedUser.value = false
+            Log.d(TAG, "fetchFollowingStatus: currentId and viewedUserId are same, cannot follow self.")
             return
         }
+        // Add explicit validation for blank IDs before proceeding
+        if (currentId.isBlank() || viewedUserId.isBlank()) {
+            Log.e(TAG, "fetchFollowingStatus: Attempted to check following status with blank ID: currentId='$currentId', viewedUserId='$viewedUserId'")
+            _isFollowingViewedUser.value = false
+            return
+        }
+
 
         viewModelScope.launch {
             val result = followRepository.isFollowing(currentId, viewedUserId)
             result.onSuccess { isFollowing ->
                 _isFollowingViewedUser.value = isFollowing
+                Log.d(TAG, "fetchFollowingStatus: isFollowing for $currentId -> $viewedUserId is $isFollowing")
             }.onFailure { e ->
                 Log.e(TAG, "Error fetching following status for viewed user: ${e.message}")
                 _isFollowingViewedUser.value = false
@@ -179,41 +190,65 @@ class OtherUserProfileViewModel(
     fun toggleFollowViewedUser() {
         val currentId = currentLoggedInUserId ?: run {
             _errorMessage.value = "Morate biti prijavljeni za praćenje korisnika."
+            Log.w(TAG, "toggleFollowViewedUser: currentId is null, user not logged in.")
             return
         }
         val targetUserId = currentViewedUserId ?: run {
             _errorMessage.value = "Nije moguće pronaći korisnika za praćenje."
+            Log.w(TAG, "toggleFollowViewedUser: targetUserId is null.")
             return
         }
         if (currentId == targetUserId) {
             _errorMessage.value = "Ne možete pratiti sami sebe."
+            Log.w(TAG, "toggleFollowViewedUser: currentId and targetUserId are same.")
             return
         }
+        // Add explicit validation for blank IDs before proceeding
+        if (currentId.isBlank() || targetUserId.isBlank()) {
+            _errorMessage.value = "Korisnički ID-jevi ne mogu biti prazni."
+            Log.e(TAG, "toggleFollowViewedUser: Attempted to toggle follow with blank ID: currentId='$currentId', targetUserId='$targetUserId'")
+            return
+        }
+
 
         viewModelScope.launch {
             _isTogglingFollow.value = true // Start loading for the button
             _errorMessage.value = null
+            Log.d(TAG, "toggleFollowViewedUser: Toggling follow status for $targetUserId by $currentId.")
 
             val isCurrentlyFollowing = _isFollowingViewedUser.value
             val result = if (isCurrentlyFollowing) {
+                Log.d(TAG, "toggleFollowViewedUser: Calling unfollowUser for $currentId -> $targetUserId")
                 followRepository.unfollowUser(currentId, targetUserId)
             } else {
+                Log.d(TAG, "toggleFollowViewedUser: Calling followUser for $currentId -> $targetUserId")
                 followRepository.followUser(currentId, targetUserId)
             }
 
             result.onSuccess {
                 _isFollowingViewedUser.value = !isCurrentlyFollowing // Optimistic update
+                Log.d(TAG, "toggleFollowViewedUser: Follow/Unfollow successful. New status: ${_isFollowingViewedUser.value}")
                 // Re-fetch follower/following counts for the viewed user to reflect the change
                 currentViewedUserId?.let { id ->
-                    followRepository.getFollowersCount(id).onSuccess { count -> _followersCount.value = count }
-                    followRepository.getFollowingCount(id).onSuccess { count -> _followingCount.value = count }
+                    followRepository.getFollowersCount(id).onSuccess { count ->
+                        _followersCount.value = count
+                        Log.d(TAG, "toggleFollowViewedUser: Updated followers count for $id to $count")
+                    }.onFailure { e ->
+                        Log.e(TAG, "toggleFollowViewedUser: Error updating followers count: ${e.message}")
+                    }
+                    followRepository.getFollowingCount(id).onSuccess { count ->
+                        _followingCount.value = count
+                        Log.d(TAG, "toggleFollowViewedUser: Updated following count for $id to $count")
+                    }.onFailure { e ->
+                        Log.e(TAG, "toggleFollowViewedUser: Error updating following count: ${e.message}")
+                    }
                 }
             }.onFailure { e ->
                 _errorMessage.value = "Greška pri praćenju/otpraćivanju: ${e.message}"
-                Log.e(TAG, "Error toggling follow for $targetUserId: ${e.message}", e)
+                Log.e(TAG, "toggleFollowViewedUser: Error toggling follow for $targetUserId: ${e.message}", e)
             }
             _isTogglingFollow.value = false // Stop loading
-
+            Log.d(TAG, "toggleFollowViewedUser: Finished toggling follow status.")
         }
     }
 

@@ -20,7 +20,7 @@ class ProfileViewModel(
     private val firebaseAuth: FirebaseAuth,
     private val authRepository: AuthRepository,
     private val runPostRepository: RunPostRepository,
-    private val followRepository: FollowRepository // Add FollowRepository
+    private val followRepository: FollowRepository
 ) : ViewModel() {
 
     private val _currentUser = MutableStateFlow<User?>(null)
@@ -97,7 +97,8 @@ class ProfileViewModel(
                 }
 
                 // New: Fetch post count
-                val userPostsResult = runPostRepository.getRunPostForUser(userId)
+                // Corrected: Use getRunPostsByUsers which takes a list of user IDs
+                val userPostsResult = runPostRepository.getRunPostsByUsers(listOf(userId))
                 if (userPostsResult.isSuccess) {
                     _postCount.value = userPostsResult.getOrNull()?.size ?: 0
                 } else {
@@ -112,6 +113,42 @@ class ProfileViewModel(
                 _isLoading.value = false
                 Log.d(TAG, "fetchUserProfileAndCounts finished. isLoading set to false.")
             }
+        }
+    }
+
+    /**
+     * Triggers the recalculation and saving of totalDistanceRun for the current user.
+     * This function should only be called by authorized users/logic.
+     */
+    fun recalculateDistances() {
+        val userId = firebaseAuth.currentUser?.uid
+        if (userId == null) {
+            _errorMessage.value = "User not logged in. Cannot recalculate distances."
+            Log.w(TAG, "recalculateDistances called but currentUserId is null.")
+            return
+        }
+
+        // Only allow specific user to run this for now, for safety.
+        if (userId != "2MKIn3Un7HevvAAROb4z3cWaxFy2") {
+            _errorMessage.value = "You do not have permission to perform this action."
+            Log.w(TAG, "Unauthorized user $userId attempted to recalculate distances.")
+            return
+        }
+
+        _isLoading.value = true
+        _errorMessage.value = null
+        viewModelScope.launch {
+            Log.d(TAG, "Attempting to recalculate distances for user: $userId")
+            val result = userRepository.recalculateAndSaveTotalDistanceRun(userId)
+            result.onSuccess {
+                Log.d(TAG, "Total distance recalculated successfully for user $userId.")
+                _errorMessage.value = "Uspješno preračunata ukupna udaljenost."
+                fetchUserProfileAndCounts() // Refresh the UI to show the new value
+            }.onFailure { e ->
+                _errorMessage.value = "Greška pri preračunavanju udaljenosti: ${e.message}"
+                Log.e(TAG, "Failed to recalculate totalDistanceRun for user $userId: ${e.message}", e)
+            }
+            _isLoading.value = false
         }
     }
 

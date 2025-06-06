@@ -140,6 +140,19 @@ fun ProfileScreen(
             }
             Spacer(modifier = Modifier.height(16.dp))
 
+            // New: Button to trigger recalculation, visible only for a specific user ID
+            if (currentUser?.id == "1nfVhq0VD7amA3JGAtwcxGcyzd13") {
+                Button(
+                    onClick = { profileViewModel.recalculateDistances() },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp),
+                    enabled = !isLoading // Disable button while loading
+                ) {
+                    Text("Preračunaj ukupnu udaljenost")
+                }
+            }
+
         } else {
             Text(text = "Korisnik nije prijavljen ili profil nije pronađen.")
             Button(onClick = { onLogout() }) {
@@ -172,7 +185,7 @@ fun UserProfileContent(user: User) {
     user.age?.let { age ->
         Text(text = "Dob: $age")
     }
-    Text(text = "Ukupna udaljenost: ${decimalFormat.format(user.totalDistanceRun)} km")
+    Text(text = "Ukupna udaljenost: ${decimalFormat.format(user.totalDistanceRun / 1000)} km")
     Text(text = "Ukupno trčanja: ${user.totalRuns}")
     // Display lastRunTimestamp if available and format it
     user.lastRunTimestamp?.let { timestamp ->

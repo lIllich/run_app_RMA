@@ -1,6 +1,8 @@
 // MainActivity.kt
 package com.example.run_app_rma
 
+import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -17,7 +19,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.viewmodel.compose.viewModel
+
 import androidx.navigation.NavType
+import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -35,6 +39,7 @@ import com.example.run_app_rma.data.firestore.repository.FollowRepository
 import com.example.run_app_rma.data.firestore.repository.RunPostRepository
 import com.example.run_app_rma.presentation.runpost.RunPostScreen
 import com.example.run_app_rma.presentation.runpost.RunPostViewModel
+import com.example.run_app_rma.presentation.search.SearchUserViewModel
 import com.example.run_app_rma.presentation.profile.EditProfileScreen
 import com.example.run_app_rma.presentation.profile.EditProfileViewModel
 import com.example.run_app_rma.presentation.profile.UserPostsScreen
@@ -56,6 +61,7 @@ import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.Polyline
 import com.google.maps.android.compose.rememberCameraPositionState
 import com.google.maps.android.compose.rememberMarkerState
+import android.util.Log
 
 
 class MainActivity : ComponentActivity() {
@@ -70,6 +76,8 @@ class MainActivity : ComponentActivity() {
     private lateinit var firebaseAuth: FirebaseAuth
     private lateinit var firebaseStorage: FirebaseStorage
 
+    private val TAG = "MainActivity"
+
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -77,6 +85,7 @@ class MainActivity : ComponentActivity() {
         val coarseLocationGranted = permissions[android.Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
         val cameraGranted = permissions[android.Manifest.permission.CAMERA] ?: false
         val readExternalStorageGranted = permissions[android.Manifest.permission.READ_EXTERNAL_STORAGE] ?: false
+        val writeExternalStorageGranted = permissions[android.Manifest.permission.WRITE_EXTERNAL_STORAGE] ?: false
         val readMediaImagesGranted = permissions[android.Manifest.permission.READ_MEDIA_IMAGES] ?: false
         val activityRecognitionGranted = permissions[android.Manifest.permission.ACTIVITY_RECOGNITION] ?: false
 
@@ -88,8 +97,19 @@ class MainActivity : ComponentActivity() {
         if (cameraGranted) {
             Toast.makeText(this, "Camera permission granted.", Toast.LENGTH_SHORT).show()
         }
-        if (readExternalStorageGranted || readMediaImagesGranted) {
-            Toast.makeText(this, "Read storage permission granted.", Toast.LENGTH_SHORT).show()
+        if (readExternalStorageGranted || writeExternalStorageGranted || readMediaImagesGranted) {
+            Toast.makeText(this, "Storage permission granted.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private val requestNotificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            Toast.makeText(this, "Notification permission granted.", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(this, "Notification permission denied. " +
+                    "You may not receive push notifications.", Toast.LENGTH_LONG).show()
         }
         if (activityRecognitionGranted) {
             Toast.makeText(this, "Activity recognition permission granted.", Toast.LENGTH_SHORT).show()
@@ -125,11 +145,34 @@ class MainActivity : ComponentActivity() {
             )
         )
 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            requestNotificationPermissionLauncher.launch(
+                android.Manifest.permission.POST_NOTIFICATIONS
+            )
+        }
+
         setContent {
             Run_app_RMATheme {
                 val navController = rememberNavController()
 
                 val isLoggedIn by remember { mutableStateOf(authRepository.isLoggedIn()) }
+
+                // Observe the current intent for notification handling
+                val currentIntent = rememberUpdatedState(intent)
+
+                // LaunchedEffect to handle initial intent when component is created
+                // and subsequent new intents when activity is already running (e.g., singleTop launch mode)
+                LaunchedEffect(currentIntent.value) {
+                    currentIntent.value?.let { incomingIntent ->
+                        handleNotificationIntent(navController, incomingIntent)
+                        // Clear the intent's data after handling to prevent re-processing.
+                        // This is important for singleTop activities.
+                        // Note: Only clear if you're sure you won't need to re-read the same intent later.
+                        // For a notification-driven navigation, this is generally safe.
+                        incomingIntent.replaceExtras(Bundle())
+                        incomingIntent.data = null
+                    }
+                }
 
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     NavHost(
@@ -302,8 +345,10 @@ class MainActivity : ComponentActivity() {
                                         navController.navigate("user_list_screen/$listType/$postId")
                                     },
                                     onViewComments = { postId ->
-                                        // TODO: Implement navigation to comments screen
                                         Toast.makeText(this@MainActivity, "Comments for post $postId", Toast.LENGTH_SHORT).show()
+                                    },
+                                    onPostDeleted = {
+                                        navController.popBackStack()
                                     }
                                 )
                             } else {
@@ -352,6 +397,73 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+        }
+    }
+
+    private fun handleNotificationIntent(navController: NavController, intent: Intent?) {
+        intent?.let { incomingIntent ->
+            Log.d(TAG, "handleNotificationIntent: Received intent. Action: ${incomingIntent.action}, Data: ${incomingIntent.dataString}")
+            Log.d(TAG, "handleNotificationIntent: Intent extras: ${incomingIntent.extras?.keySet()?.joinToString(", ")}")
+
+            if (incomingIntent.hasExtra("type")) {
+                val notificationType = incomingIntent.getStringExtra("type")
+                val postId = incomingIntent.getStringExtra("postId")
+                val userId = incomingIntent.getStringExtra("userId")
+
+                Log.d(TAG, "handleNotificationIntent: Notification Type: $notificationType, Post ID: $postId, User ID: $userId")
+
+                when (notificationType) {
+                    "like", "comment", "comment_deleted" -> {
+                        if (postId != null) {
+                            val route = "run_post_screen/$postId"
+                            Log.d(TAG, "Navigating to $route for $notificationType notification.")
+                            navController.navigate(route) {
+                                // Keep the current screen if it's the target, otherwise navigate.
+                                // This works well with singleTop launchMode.
+                                launchSingleTop = true
+                            }
+                            Log.d(TAG, "Navigation dispatched to $route. Current destination: ${navController.currentDestination?.route}")
+                        } else {
+                            Toast.makeText(this, "Notification error: Post ID missing.", Toast.LENGTH_SHORT).show()
+                            Log.e(TAG, "Notification error: Post ID missing for $notificationType notification.")
+                        }
+                    }
+                    "new_follower" -> {
+                        if (userId != null) {
+                            val route = "other_user_profile_screen/$userId"
+                            Log.d(TAG, "Navigating to $route for new_follower notification.")
+                            navController.navigate(route) {
+                                // Keep the current screen if it's the target, otherwise navigate.
+                                launchSingleTop = true
+                            }
+                            Log.d(TAG, "Navigation dispatched to $route. Current destination: ${navController.currentDestination?.route}")
+                        } else {
+                            Toast.makeText(this, "Notification error: User ID missing.", Toast.LENGTH_SHORT).show()
+                            Log.e(TAG, "Notification error: User ID missing for new_follower notification.")
+                        }
+                    }
+                    else -> {
+                        Log.w(TAG, "Unhandled notification type: $notificationType")
+                    }
+                }
+            } else {
+                Log.d(TAG, "handleNotificationIntent: Intent does not have 'type' extra. Not a handled notification intent.")
+            }
+        } ?: Log.d(TAG, "handleNotificationIntent: Received null intent.")
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        // Set the new intent for the current activity instance.
+        // This is crucial for LaunchedEffect(currentIntent.value) to react to new intents.
+        setIntent(intent)
+    }
+
+    @Preview(showBackground = true)
+    @Composable
+    fun GreetingPreview() {
+        Run_app_RMATheme {
+            Text("Hello Android!")
         }
     }
 }
@@ -433,13 +545,5 @@ fun FullscreenMapScreen(
                 )
             }
         }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    Run_app_RMATheme {
-        Text("Hello Android!")
     }
 }

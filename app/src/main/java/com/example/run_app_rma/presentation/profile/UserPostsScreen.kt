@@ -20,6 +20,16 @@ import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.Date
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import com.google.firebase.auth.FirebaseAuth
+import android.util.Log
+import com.google.accompanist.swiperefresh.SwipeRefresh // Import SwipeRefresh
+import com.google.accompanist.swiperefresh.rememberSwipeRefreshState // Import rememberSwipeRefreshState
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -27,22 +37,66 @@ fun UserPostsScreen(
     modifier: Modifier = Modifier,
     userPostsViewModel: UserPostsViewModel = viewModel(factory = UserPostsViewModel.Factory),
     onBack: () -> Unit,
-    onUserClick: (String) -> Unit, // New parameter: Lambda to navigate to another user's profile
-    onPostClick: (String) -> Unit // New parameter: Lambda to navigate to a specific post
+    onUserClick: (String) -> Unit,
+    onPostClick: (String) -> Unit
 ) {
     val userPosts by userPostsViewModel.userPosts.collectAsState(initial = emptyList())
     val userLikedPostIds by userPostsViewModel.userLikedPostIds.collectAsState(initial = emptySet())
     val isLoading by userPostsViewModel.isLoading.collectAsState()
+    val isRefreshing by userPostsViewModel.isRefreshing.collectAsState() // Observe refreshing state
     val errorMessage by userPostsViewModel.errorMessage.collectAsState()
-    val postAuthor by userPostsViewModel.postAuthor.collectAsState(initial = null) // Collect the author of the posts
+    val postAuthor by userPostsViewModel.postAuthor.collectAsState(initial = null)
 
     val dateFormat = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
     val decimalFormat = DecimalFormat("#.##")
 
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    val swipeRefreshState = rememberSwipeRefreshState(isRefreshing = isRefreshing)
+
+    DisposableEffect(lifecycleOwner, userPostsViewModel) { // Add userPostsViewModel to key
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                Log.d("UserPostsScreen", "Lifecycle Event: ON_RESUME detected. Refreshing data.")
+                userPostsViewModel.viewedUserId?.let { userId ->
+                    userPostsViewModel.fetchAllUserDataForScreen() // Call the combined fetch
+                } ?: run {
+                    Log.w("UserPostsScreen", "viewedUserId is null on ON_RESUME. Cannot refresh posts.")
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+
+        // Initial data load when the ViewModel is first provided to the screen
+        userPostsViewModel.viewedUserId?.let {
+            Log.d("UserPostsScreen", "Initial fetch in DisposableEffect for user ID: $it")
+            userPostsViewModel.fetchAllUserDataForScreen()
+        }
+
+
+        onDispose {
+            Log.d("UserPostsScreen", "DisposableEffect disposing. Removing lifecycle observer.")
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            userPostsViewModel.clearMessages() // Clear messages when screen is disposed
+        }
+    }
+
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(text = postAuthor?.displayName?.let { "$it objave" } ?: "Objave") },
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(text = postAuthor?.displayName?.let { "$it objave" } ?: "Objave")
+                        if (isLoading && !isRefreshing) { // Show initial loading only if not refreshing
+                            Spacer(modifier = Modifier.width(8.dp))
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -51,41 +105,51 @@ fun UserPostsScreen(
             )
         }
     ) { paddingValues ->
-        Column(
+        // Wrap the content with SwipeRefresh
+        SwipeRefresh(
+            state = swipeRefreshState,
+            onRefresh = { userPostsViewModel.fetchAllUserDataForScreen() }, // Trigger refresh
             modifier = modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(horizontal = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Top
         ) {
-            if (isLoading) {
-                CircularProgressIndicator(modifier = Modifier.padding(16.dp))
-                Text("Učitavanje objava...")
-            } else if (errorMessage != null) {
-                Text("Greška: $errorMessage", color = MaterialTheme.colorScheme.error)
-                Button(onClick = { userPostsViewModel.fetchUserPosts() }) {
-                    Text("Pokušaj ponovo")
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Top
+            ) {
+                errorMessage?.let { message ->
+                    Text("Greška: $message", color = MaterialTheme.colorScheme.error)
+                    Button(onClick = { userPostsViewModel.fetchAllUserDataForScreen() }) { // Retry button
+                        Text("Pokušaj ponovo")
+                    }
                 }
-            } else if (userPosts.isEmpty()) {
-                Text("Nema objava za prikaz.", modifier = Modifier.padding(16.dp))
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    contentPadding = PaddingValues(bottom = 16.dp)
-                ) {
-                    items(userPosts, key = { it.id }) { post ->
-                        RunPostCard(
-                            post = post,
-                            user = postAuthor, // Pass the author of the posts
-                            dateFormat = dateFormat,
-                            decimalFormat = decimalFormat,
-                            onLikeClick = { postId, isLiked -> userPostsViewModel.toggleLike(postId, isLiked) },
-                            isLiked = userLikedPostIds.contains(post.id),
-                            onUserClick = onUserClick, // Pass the onUserClick lambda
-                            onPostClick = onPostClick // Pass the onPostClick lambda
-                        )
+
+                if (userPosts.isEmpty() && !isLoading && !isRefreshing) { // Only show "No posts" if not loading/refreshing
+                    Text("Nema objava za prikaz.", modifier = Modifier.padding(16.dp))
+                } else if (userPosts.isEmpty() && (isLoading || isRefreshing)) {
+                    // This state should ideally be covered by the CircularProgressIndicator in TopAppBar
+                    // or by the isInitialLoading check. Keeping it explicit for safety.
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        contentPadding = PaddingValues(bottom = 16.dp)
+                    ) {
+                        items(userPosts, key = { it.id }) { post ->
+                            RunPostCard(
+                                post = post,
+                                user = postAuthor,
+                                dateFormat = dateFormat,
+                                decimalFormat = decimalFormat,
+                                onLikeClick = { postId, isLiked -> userPostsViewModel.toggleLike(postId, isLiked) },
+                                isLiked = userLikedPostIds.contains(post.id),
+                                onUserClick = onUserClick,
+                                onPostClick = onPostClick
+                            )
+                        }
                     }
                 }
             }

@@ -4,7 +4,6 @@ import com.google.firebase.firestore.ServerTimestamp
 import java.util.Date
 
 data class User(
-    // Removed @DocumentId annotation
     val id: String = "",    // firebase document id for the user, explicitly stored as a field
     val displayName: String = "",
     val lowercaseDisplayName: String = "", // Add this new field
@@ -14,5 +13,6 @@ data class User(
     val totalRuns: Int = 0,
     val age: Int? = null,
     val lastRunTimestamp: Long? = null,
+    val fcmToken: String? = null, // NEW: Field to store the FCM registration token
     @ServerTimestamp val createdAt: Date? = null
 )

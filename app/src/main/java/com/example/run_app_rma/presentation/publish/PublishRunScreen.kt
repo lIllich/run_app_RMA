@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -25,18 +26,24 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.flow.collectLatest
+import com.google.accompanist.swiperefresh.SwipeRefresh // Import SwipeRefresh
+import com.google.accompanist.swiperefresh.rememberSwipeRefreshState // Import rememberSwipeRefreshState
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PublishRunScreen(
     modifier: Modifier = Modifier,
-    publishRunViewModel: PublishRunViewModel = viewModel(), // ViewModel will be provided by MainScreenWithTabs
+    publishRunViewModel: PublishRunViewModel = viewModel(),
     onRunClick: (Long) -> Unit
 ) {
     val localRuns = publishRunViewModel.localRuns
     val isLoading by publishRunViewModel.isLoading
 //    val errorMessage by publishRunViewModel.errorMessage
 //    val successMessage by publishRunViewModel.successMessage
+    val isRefreshing by publishRunViewModel.isRefreshing.collectAsState() // Observe refreshing state
+    val selectedRun by publishRunViewModel.selectedRun
+    val caption by publishRunViewModel.caption
 
     val dateFormat = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
     val decimalFormat = DecimalFormat("#.##")
@@ -52,6 +59,8 @@ fun PublishRunScreen(
         }
     }
 
+    val swipeRefreshState = rememberSwipeRefreshState(isRefreshing = isRefreshing)
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -64,30 +73,80 @@ fun PublishRunScreen(
             modifier = Modifier.padding(bottom = 16.dp)
         )
 
-        if (isLoading) {
+        // Only show CircularProgressIndicator if it's the initial load AND not refreshing
+        if (isLoading && !isRefreshing) {
             CircularProgressIndicator(modifier = Modifier.padding(16.dp))
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        if (localRuns.isEmpty() && !isLoading) {
-            Text("Nema lokalno spremljenih trčanja za objavu.")
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+        // Wrap the content of the LazyColumn (which holds the list of runs) with SwipeRefresh
+        // The TextField and Button below are outside the refresh scope, which is fine.
+        SwipeRefresh(
+            state = swipeRefreshState,
+            onRefresh = { publishRunViewModel.loadLocalRuns() }, // Trigger refresh
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f) // Ensures SwipeRefresh takes available height
+        ) {
+            Column(
+                modifier = Modifier.fillMaxSize(), // Fill the space provided by SwipeRefresh
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                items(localRuns, key = { it.id }) { run ->
-                    RunItemCard(
-                        run = run,
-                        dateFormat = dateFormat,
-                        decimalFormat = decimalFormat,
-                        onRunSelected = { runId -> onRunClick(runId) },
-                        onDeleteRun = { runId -> publishRunViewModel.deleteRun(runId) } // Pass delete function
-                    )
+                // Only show "No runs" if list is empty and not currently loading or refreshing
+                if (localRuns.isEmpty() && !isLoading && !isRefreshing) {
+                    Text("Nema lokalno spremljenih trčanja za objavu.")
+                } else if (localRuns.isNotEmpty() || (isLoading && !isRefreshing)) {
+                    Text("Odaberite trčanje za objavu:", style = MaterialTheme.typography.titleMedium)
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    LazyColumn(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(localRuns, key = { it.id }) { run ->
+                            RunItemCard(
+                                run = run,
+                                dateFormat = dateFormat,
+                                decimalFormat = decimalFormat,
+                                isSelected = run.id == selectedRun?.id,
+                                onRunSelected = { publishRunViewModel.selectRun(it),
+                                onDeleteRun = { runId -> publishRunViewModel.deleteRun(runId) }
+                            )
+                        }
+                    }
                 }
+            }
+        }
+
+        // Content outside the SwipeRefresh:
+        Spacer(modifier = Modifier.height(16.dp))
+
+        selectedRun?.let { run ->
+            Text("Odabrano trčanje:", style = MaterialTheme.typography.titleSmall)
+            Text("Vrijeme: ${dateFormat.format(Date(run.startTime))} - ${run.endTime?.let { dateFormat.format(Date(it)) } ?: "N/A"}")
+            Text("Udaljenost: ${run.distance?.let { decimalFormat.format(it / 1000) } ?: "N/A"} km")
+            Text("Prosječni tempo: ${run.avgPace?.let { decimalFormat.format(it) } ?: "N/A"} min/km")
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            OutlinedTextField(
+                value = caption,
+                onValueChange = { publishRunViewModel.onCaptionChanged(it) },
+                label = { Text("Dodajte opis (opcionalno)") },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 3,
+                maxLines = 5
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Button(
+                onClick = { publishRunViewModel.publishSelectedRun() },
+                enabled = !isLoading,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Objavi Trčanje")
             }
         }
     }
