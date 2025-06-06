@@ -111,11 +111,6 @@ class MainActivity : ComponentActivity() {
             Toast.makeText(this, "Notification permission denied. " +
                     "You may not receive push notifications.", Toast.LENGTH_LONG).show()
         }
-        if (activityRecognitionGranted) {
-            Toast.makeText(this, "Activity recognition permission granted.", Toast.LENGTH_SHORT).show()
-        } else {
-            Toast.makeText(this, "Activity recognition permission denied.", Toast.LENGTH_SHORT).show()
-        }
     }
 
 

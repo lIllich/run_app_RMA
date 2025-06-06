@@ -110,7 +110,7 @@ fun PublishRunScreen(
                                 dateFormat = dateFormat,
                                 decimalFormat = decimalFormat,
                                 isSelected = run.id == selectedRun?.id,
-                                onRunSelected = { publishRunViewModel.selectRun(it),
+                                onRunSelected = { runId -> onRunClick(runId) },
                                 onDeleteRun = { runId -> publishRunViewModel.deleteRun(runId) }
                             )
                         }
@@ -158,6 +158,7 @@ fun RunItemCard(
     run: RunEntity,
     dateFormat: SimpleDateFormat,
     decimalFormat: DecimalFormat,
+    isSelected: Boolean,
     onRunSelected: (Long) -> Unit,
     onDeleteRun: (Long) -> Unit // New parameter for delete action
 ) {

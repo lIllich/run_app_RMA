@@ -8,6 +8,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.run_app_rma.data.dao.RunDao
+import com.example.run_app_rma.data.firestore.model.RunPost
 import com.example.run_app_rma.data.firestore.repository.RunPostRepository
 import com.example.run_app_rma.data.firestore.repository.UserRepository
 import com.example.run_app_rma.domain.model.RunEntity
@@ -19,6 +20,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.text.DecimalFormat
+import java.util.Date
 
 class PublishRunViewModel(
     private val runDao: RunDao,
