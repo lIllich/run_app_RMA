@@ -1,7 +1,7 @@
 package com.example.run_app_rma
 
-import android.content.Intent // Import Intent
-import android.os.Build // Import Build for SDK version checks
+import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -35,7 +35,7 @@ import com.example.run_app_rma.data.firestore.repository.RunPostRepository
 import com.example.run_app_rma.presentation.feed.FeedViewModel
 import com.example.run_app_rma.presentation.runpost.RunPostScreen
 import com.example.run_app_rma.presentation.runpost.RunPostViewModel
-import com.example.run_app_rma.presentation.search.SearchUserViewModel // Renamed from FollowViewModel
+import com.example.run_app_rma.presentation.search.SearchUserViewModel
 import com.example.run_app_rma.presentation.profile.EditProfileScreen
 import com.example.run_app_rma.presentation.profile.EditProfileViewModel
 import com.example.run_app_rma.presentation.profile.ProfileScreen
@@ -49,7 +49,7 @@ import com.example.run_app_rma.presentation.publish.PublishRunViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
-import android.util.Log // Import Log for debugging
+import android.util.Log
 
 
 class MainActivity : ComponentActivity() {
@@ -64,9 +64,8 @@ class MainActivity : ComponentActivity() {
     private lateinit var firebaseAuth: FirebaseAuth
     private lateinit var firebaseStorage: FirebaseStorage
 
-    private val TAG = "MainActivity" // Tag for logging
+    private val TAG = "MainActivity"
 
-    // Launcher for general permissions (location, camera, storage)
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -91,7 +90,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // New: Launcher for POST_NOTIFICATIONS permission (for Android 13+)
     private val requestNotificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted: Boolean ->
@@ -118,23 +116,17 @@ class MainActivity : ComponentActivity() {
         firebaseAuth = FirebaseAuth.getInstance()
         firebaseStorage = FirebaseStorage.getInstance()
 
-        // Request general permissions at startup
         requestPermissionLauncher.launch(
             arrayOf(
                 android.Manifest.permission.ACCESS_FINE_LOCATION,
                 android.Manifest.permission.ACCESS_COARSE_LOCATION,
                 android.Manifest.permission.CAMERA,
-                // These storage permissions are deprecated in newer Android versions
-                // but still needed for compatibility with older APIs or until a full
-                // migration to MediaStore API for all file access.
                 android.Manifest.permission.READ_EXTERNAL_STORAGE,
                 android.Manifest.permission.WRITE_EXTERNAL_STORAGE,
-                // Specific for Android 13+ for image access
                 android.Manifest.permission.READ_MEDIA_IMAGES
             )
         )
 
-        // New: Request POST_NOTIFICATIONS permission for Android 13+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             requestNotificationPermissionLauncher.launch(
                 android.Manifest.permission.POST_NOTIFICATIONS
@@ -147,23 +139,20 @@ class MainActivity : ComponentActivity() {
 
                 val isLoggedIn by remember { mutableStateOf(authRepository.isLoggedIn()) }
 
-                // New: Observe the current intent for notification handling
+                // Observe the current intent for notification handling
                 val currentIntent = rememberUpdatedState(intent)
 
-                // New: LaunchedEffect to handle initial intent when component is created
+                // LaunchedEffect to handle initial intent when component is created
                 // and subsequent new intents when activity is already running (e.g., singleTop launch mode)
                 LaunchedEffect(currentIntent.value) {
                     currentIntent.value?.let { incomingIntent ->
                         handleNotificationIntent(navController, incomingIntent)
-                        // It's crucial to clear the intent's data after handling
-                        // to prevent it from being re-processed on subsequent recreations
-                        // or other scenarios that might re-deliver the same intent.
-                        // However, directly modifying 'intent' is not allowed here as it's
-                        // an immutable property within onCreate.
-                        // A common pattern is to set the intent to null or a new empty intent
-                        // after processing it in a separate lifecycle method if the activity
-                        // has singleTop launch mode or similar behavior.
-                        // For simplicity in Compose, we ensure it's only processed once per intent value.
+                        // Clear the intent's data after handling to prevent re-processing.
+                        // This is important for singleTop activities.
+                        // Note: Only clear if you're sure you won't need to re-read the same intent later.
+                        // For a notification-driven navigation, this is generally safe.
+                        incomingIntent.replaceExtras(Bundle())
+                        incomingIntent.data = null
                     }
                 }
 
@@ -216,10 +205,10 @@ class MainActivity : ComponentActivity() {
                                 onViewFollowers = { userId ->
                                     navController.navigate("user_list_screen/followers/$userId")
                                 },
-                                onUserClick = { clickedUserId -> // Pass the onUserClick lambda here
+                                onUserClick = { clickedUserId ->
                                     navController.navigate("other_user_profile_screen/$clickedUserId")
                                 },
-                                onPostClick = { postId -> // Pass onPostClick to navigate to RunPostScreen
+                                onPostClick = { postId ->
                                     navController.navigate("run_post_screen/$postId")
                                 }
                             )
@@ -255,10 +244,10 @@ class MainActivity : ComponentActivity() {
                                         factory = UserPostsViewModel.Factory
                                     ),
                                     onBack = { navController.popBackStack() },
-                                    onUserClick = { clickedUserId -> // Pass onUserClick to UserPostsScreen
+                                    onUserClick = { clickedUserId ->
                                         navController.navigate("other_user_profile_screen/$clickedUserId")
                                     },
-                                    onPostClick = { postId -> // Pass onPostClick to UserPostsScreen
+                                    onPostClick = { postId ->
                                         navController.navigate("run_post_screen/$postId")
                                     }
                                 )
@@ -311,7 +300,7 @@ class MainActivity : ComponentActivity() {
                                     onViewFollowers = { viewedUserId ->
                                         navController.navigate("user_list_screen/followers/$viewedUserId")
                                     },
-                                    onUserClick = { clickedUserId -> // Pass onUserClick to OtherUserProfileScreen
+                                    onUserClick = { clickedUserId ->
                                         navController.navigate("other_user_profile_screen/$clickedUserId")
                                     }
                                 )
@@ -335,11 +324,10 @@ class MainActivity : ComponentActivity() {
                                         navController.navigate("user_list_screen/$listType/$postId")
                                     },
                                     onViewComments = { postId ->
-                                        // TODO: Implement navigation to comments screen
                                         Toast.makeText(this@MainActivity, "Comments for post $postId", Toast.LENGTH_SHORT).show()
                                     },
                                     onPostDeleted = {
-                                        navController.popBackStack() // Navigate back when the post is deleted
+                                        navController.popBackStack()
                                     }
                                 )
                             } else {
@@ -353,69 +341,58 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // New: Helper function to handle intents when MainActivity is launched or receives a new intent
     private fun handleNotificationIntent(navController: NavController, intent: Intent?) {
         intent?.let { incomingIntent ->
-            Log.d(TAG, "handleNotificationIntent: Received intent. Action: ${incomingIntent.action}, Data: ${incomingIntent.dataString}") // ADDED LOG
-            Log.d(TAG, "handleNotificationIntent: Intent extras: ${incomingIntent.extras?.keySet()?.joinToString(", ")}") // ADDED LOG
+            Log.d(TAG, "handleNotificationIntent: Received intent. Action: ${incomingIntent.action}, Data: ${incomingIntent.dataString}")
+            Log.d(TAG, "handleNotificationIntent: Intent extras: ${incomingIntent.extras?.keySet()?.joinToString(", ")}")
 
-            // Check if this intent came from a notification tap
             if (incomingIntent.hasExtra("type")) {
                 val notificationType = incomingIntent.getStringExtra("type")
                 val postId = incomingIntent.getStringExtra("postId")
-                val userId = incomingIntent.getStringExtra("userId") // For follower notifications
+                val userId = incomingIntent.getStringExtra("userId")
 
-                Log.d(TAG, "handleNotificationIntent: Notification Type: $notificationType, Post ID: $postId, User ID: $userId") // ADDED LOG
+                Log.d(TAG, "handleNotificationIntent: Notification Type: $notificationType, Post ID: $postId, User ID: $userId")
 
                 when (notificationType) {
-                    "like", "comment" -> {
+                    "like", "comment", "comment_deleted" -> {
                         if (postId != null) {
-                            Log.d(TAG, "Navigating to run_post_screen/$postId for $notificationType notification. Current destination: ${navController.currentDestination?.route}")
-                            navController.navigate("run_post_screen/$postId") {
-                                // Clear back stack to make this the root of the notification flow
-                                popUpTo(navController.graph.startDestinationId) { inclusive = true }
-                                launchSingleTop = true // Ensure only one instance of the destination
+                            val route = "run_post_screen/$postId"
+                            Log.d(TAG, "Navigating to $route for $notificationType notification.")
+                            navController.navigate(route) {
+                                // Keep the current screen if it's the target, otherwise navigate.
+                                // This works well with singleTop launchMode.
+                                launchSingleTop = true
                             }
+                            Log.d(TAG, "Navigation dispatched to $route. Current destination: ${navController.currentDestination?.route}")
                         } else {
                             Toast.makeText(this, "Notification error: Post ID missing.", Toast.LENGTH_SHORT).show()
-                            Log.e(TAG, "Notification error: Post ID missing for $notificationType notification.") // ADDED LOG
+                            Log.e(TAG, "Notification error: Post ID missing for $notificationType notification.")
                         }
                     }
                     "new_follower" -> {
                         if (userId != null) {
-                            Log.d(TAG, "Navigating to other_user_profile_screen/$userId for new_follower notification. Current destination: ${navController.currentDestination?.route}")
-                            navController.navigate("other_user_profile_screen/$userId") {
-                                popUpTo(navController.graph.startDestinationId) { inclusive = true }
+                            val route = "other_user_profile_screen/$userId"
+                            Log.d(TAG, "Navigating to $route for new_follower notification.")
+                            navController.navigate(route) {
+                                // Keep the current screen if it's the target, otherwise navigate.
                                 launchSingleTop = true
                             }
+                            Log.d(TAG, "Navigation dispatched to $route. Current destination: ${navController.currentDestination?.route}")
                         } else {
                             Toast.makeText(this, "Notification error: User ID missing.", Toast.LENGTH_SHORT).show()
-                            Log.e(TAG, "Notification error: User ID missing for new_follower notification.") // ADDED LOG
+                            Log.e(TAG, "Notification error: User ID missing for new_follower notification.")
                         }
                     }
-                    "comment_deleted" -> { // Handle comment_deleted notification
-                        if (postId != null) {
-                            Log.d(TAG, "Navigating to run_post_screen/$postId for comment_deleted notification. Current destination: ${navController.currentDestination?.route}")
-                            navController.navigate("run_post_screen/$postId") {
-                                popUpTo(navController.graph.startDestinationId) { inclusive = true }
-                                launchSingleTop = true
-                            }
-                        } else {
-                            Toast.makeText(this, "Notification error: Post ID missing for deleted comment.", Toast.LENGTH_SHORT).show()
-                            Log.e(TAG, "Notification error: Post ID missing for deleted comment notification.") // ADDED LOG
-                        }
-                    }
-                    else -> { // Log unexpected notification types
-                        Log.w(TAG, "Unhandled notification type: $notificationType") // ADDED LOG
+                    else -> {
+                        Log.w(TAG, "Unhandled notification type: $notificationType")
                     }
                 }
             } else {
-                Log.d(TAG, "handleNotificationIntent: Intent does not have 'type' extra. Not a handled notification intent.") // ADDED LOG
+                Log.d(TAG, "handleNotificationIntent: Intent does not have 'type' extra. Not a handled notification intent.")
             }
-        } ?: Log.d(TAG, "handleNotificationIntent: Received null intent.") // ADDED LOG
+        } ?: Log.d(TAG, "handleNotificationIntent: Received null intent.")
     }
 
-    // New: Override onNewIntent to handle cases where Activity is already running (e.g., singleTop launch mode)
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         // Set the new intent for the current activity instance.
