@@ -1,6 +1,6 @@
 package com.example.run_app_rma.presentation.feed
 
-import android.util.Log // Import Log for debugging
+import android.util.Log
 
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateListOf
@@ -10,7 +10,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.run_app_rma.data.firestore.model.RunPost
 import com.example.run_app_rma.data.firestore.model.User
-import com.example.run_app_rma.data.firestore.repository.FollowRepository // Import FollowRepository
+import com.example.run_app_rma.data.firestore.repository.FollowRepository
 import com.example.run_app_rma.data.firestore.repository.RunPostRepository
 import com.example.run_app_rma.data.firestore.repository.UserRepository
 import com.google.firebase.auth.FirebaseAuth
@@ -23,19 +23,21 @@ class FeedViewModel(
     private val runPostRepository: RunPostRepository,
     private val userRepository: UserRepository,
     private val firebaseAuth: FirebaseAuth,
-    private val followRepository: FollowRepository // Add FollowRepository
+    private val followRepository: FollowRepository
 ) : ViewModel() {
 
-    // Removed _newPosts and _olderPosts
     private val _allPosts = mutableStateListOf<RunPost>()
-    val allPosts: List<RunPost> = _allPosts // Expose a single list for all posts
+    val allPosts: List<RunPost> = _allPosts
 
-    // Renamed _isLoading to _isInitialLoading for screen-level loading
-    private val _isInitialLoading = MutableStateFlow(true) // Start as true for initial load
+    private val _isInitialLoading = MutableStateFlow(true)
     val isInitialLoading: StateFlow<Boolean> = _isInitialLoading.asStateFlow()
 
-    // _isLoading can be used for individual action (like/comment) if needed, but not for global indicator
-    private val _isLoadingAction = MutableStateFlow(false) // For specific actions like liking
+    // New: State for pull-to-refresh
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
+
+    private val _isLoadingAction = MutableStateFlow(false)
     val isLoadingAction: StateFlow<Boolean> = _isLoadingAction.asStateFlow()
 
 
@@ -48,7 +50,7 @@ class FeedViewModel(
     private val _userProfiles = mutableStateOf(emptyMap<String, User>())
     val userProfiles: State<Map<String, User>> = _userProfiles
 
-    private val _userLikedPostIds = MutableStateFlow<Set<String>>(emptySet()) // New: State for user's liked post IDs
+    private val _userLikedPostIds = MutableStateFlow<Set<String>>(emptySet())
     val userLikedPostIds: StateFlow<Set<String>> = _userLikedPostIds.asStateFlow()
 
     private val TAG = "FeedViewModel"
@@ -62,17 +64,21 @@ class FeedViewModel(
         if (currentUserId == null) {
             _errorMessage.value = "Korisnik nije prijavljen."
             Log.d(TAG, "loadFeedPosts called but currentUserId is null. User not authenticated.")
-            _isInitialLoading.value = false // Ensure loading is false if user not logged in
+            _isInitialLoading.value = false
+            _isRefreshing.value = false // Also reset refreshing state
             return
         }
 
         Log.d(TAG, "loadFeedPosts called for userId: $currentUserId")
 
-        _isInitialLoading.value = true // Set initial loading to true
+        // Only set initial loading if it's the very first load, otherwise rely on isRefreshing
+        if (!_isInitialLoading.value) { // Prevent showing initial loading spinner on subsequent refreshes
+            _isRefreshing.value = true // Set refreshing to true for pull-to-refresh
+        }
+
         _errorMessage.value = null
         viewModelScope.launch {
             try {
-                // 1. Fetch IDs of users the current user is following
                 val followingIdsResult = followRepository.getFollowingIds(currentUserId)
                 Log.d(TAG, "Fetched following IDs result: $followingIdsResult")
 
@@ -81,19 +87,18 @@ class FeedViewModel(
                     Log.d(TAG, "User is following: $followingIds")
 
                     if (followingIds.isEmpty()) {
-                        _allPosts.clear() // Clear all posts if not following anyone
+                        _allPosts.clear()
                         _userProfiles.value = emptyMap()
                         _userLikedPostIds.value = emptySet()
                         _errorMessage.value = "Ne pratite nijednog korisnika. Pratite nekoga da vidite objave."
-                        _isInitialLoading.value = false // Ensure initial loading is false
-                        return@launch // Exit early if not following anyone
+                        _isInitialLoading.value = false
+                        _isRefreshing.value = false // Also reset refreshing state
+                        return@launch
                     }
 
-                    // 2. Fetch posts from the users the current user is following
                     val followedUsersPostsResult = runPostRepository.getRunPostsByUsers(followingIds)
                     Log.d(TAG, "Fetched followed users posts result: $followedUsersPostsResult")
 
-                    // 3. Fetch all likes made by the current user
                     val userLikesResult = runPostRepository.getLikesByUser(currentUserId)
                     Log.d(TAG, "Fetched user likes result: $userLikesResult")
 
@@ -106,14 +111,12 @@ class FeedViewModel(
                         Log.d(TAG, "User liked post IDs: $userLikedPostIds")
 
                         _allPosts.clear()
-                        _userLikedPostIds.value = userLikedPostIds // Update the liked post IDs state
+                        _userLikedPostIds.value = userLikedPostIds
 
-                        // Add all fetched posts and sort them by timestamp descending
                         _allPosts.addAll(allFetchedPosts.sortedByDescending { it.timestamp })
 
                         Log.d(TAG, "All posts count: ${_allPosts.size}")
 
-                        // Fetch user profiles for all unique user IDs found in posts
                         val postsToFetchUserProfilesFor = _allPosts.map { it.userId }.distinct()
                         fetchUserProfilesForPosts(postsToFetchUserProfilesFor)
 
@@ -133,13 +136,13 @@ class FeedViewModel(
                 _errorMessage.value = "Došlo je do greške: ${e.message}"
                 Log.e(TAG, "Unexpected error in loadFeedPosts: ${e.message}", e)
             } finally {
-                _isInitialLoading.value = false // Set initial loading to false after completion/error
-                Log.d(TAG, "loadFeedPosts finished. isInitialLoading set to false.")
+                _isInitialLoading.value = false
+                _isRefreshing.value = false // Reset refreshing state after completion/error
+                Log.d(TAG, "loadFeedPosts finished. isInitialLoading set to false, isRefreshing set to false.")
             }
         }
     }
 
-    // Helper to fetch user profiles for display names
     private fun fetchUserProfilesForPosts(userIds: List<String>) {
         viewModelScope.launch {
             val profiles = mutableMapOf<String, User>()
@@ -165,7 +168,13 @@ class FeedViewModel(
             return
         }
 
-        // _isLoadingAction.value = true // Uncomment if you want localized loading for liking
+        val previousLikedState = _userLikedPostIds.value
+        _userLikedPostIds.value = if (isCurrentlyLiked) {
+            _userLikedPostIds.value.minus(postId)
+        } else {
+            _userLikedPostIds.value.plus(postId)
+        }
+        Log.d(TAG, "Optimistically updated userLikedPostIds in FeedViewModel: ${_userLikedPostIds.value}")
 
         viewModelScope.launch {
             val result = if (isCurrentlyLiked) {
@@ -176,14 +185,12 @@ class FeedViewModel(
 
             result.onSuccess {
                 Log.d(TAG, "Like/Unlike successful for post $postId. Refreshing data.")
-                // Refresh posts to reflect the like/unlike status and re-categorize
-                loadFeedPosts() // This will also update the liked status for the specific post
+                loadFeedPosts()
             }.onFailure { e ->
+                _userLikedPostIds.value = previousLikedState
                 _errorMessage.value = "Greška pri lajkanju objave: ${e.message}"
                 Log.e(TAG, "Error liking/unliking post $postId: ${e.message}", e)
             }
-            // _isLoadingAction.value = false // Uncomment if you want localized loading for liking
-
         }
     }
 
@@ -197,7 +204,7 @@ class FeedViewModel(
         private val runPostRepository: RunPostRepository,
         private val userRepository: UserRepository,
         private val firebaseAuth: FirebaseAuth,
-        private val followRepository: FollowRepository // Add FollowRepository to factory
+        private val followRepository: FollowRepository
     ) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(FeedViewModel::class.java)) {

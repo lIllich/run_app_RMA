@@ -1,5 +1,6 @@
 [versions]
 accompanistPager = "0.34.0"
+accompanistSwiperefresh = "0.29.1-alpha"
 activityCompose = "1.10.1"
 activityKtx = "1.10.1"
 agp = "8.9.3"
@@ -27,6 +28,7 @@ navigationComposeAndroid = "2.9.0"
 [libraries]
 accompanist-pager = { module = "com.google.accompanist:accompanist-pager", version.ref = "accompanistPager" }
 accompanist-pager-indicators = { module = "com.google.accompanist:accompanist-pager-indicators", version.ref = "accompanistPager" }
+accompanist-swiperefresh = { module = "com.google.accompanist:accompanist-swiperefresh", version.ref = "accompanistSwiperefresh" }
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
 androidx-activity-ktx = { module = "androidx.activity:activity-ktx", version.ref = "activityKtx" }
 androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }

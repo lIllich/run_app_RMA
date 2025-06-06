@@ -13,6 +13,9 @@ import com.example.run_app_rma.data.firestore.repository.UserRepository
 import com.example.run_app_rma.domain.model.RunEntity
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.GeoPoint
+import kotlinx.coroutines.flow.MutableStateFlow // Import for MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow // Import for StateFlow
+import kotlinx.coroutines.flow.asStateFlow // Import for asStateFlow
 import kotlinx.coroutines.launch
 import java.util.Date
 import java.text.DecimalFormat
@@ -20,7 +23,7 @@ import java.text.DecimalFormat
 class PublishRunViewModel(
     private val runDao: RunDao,
     private val runPostRepository: RunPostRepository,
-    private val userRepository: UserRepository, // Needed to update user's total runs/distance
+    private val userRepository: UserRepository,
     private val firebaseAuth: FirebaseAuth
 ) : ViewModel() {
 
@@ -29,6 +32,10 @@ class PublishRunViewModel(
 
     private val _isLoading = mutableStateOf(false)
     val isLoading: State<Boolean> = _isLoading
+
+    // New: State for pull-to-refresh
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
     private val _errorMessage = mutableStateOf<String?>(null)
     val errorMessage: State<String?> = _errorMessage
@@ -42,7 +49,7 @@ class PublishRunViewModel(
     private val _caption = mutableStateOf("")
     val caption: State<String> = _caption
 
-    private val decimalFormat = DecimalFormat("#.##") // For formatting distance/pace
+    private val decimalFormat = DecimalFormat("#.##")
 
     init {
         loadLocalRuns()
@@ -50,8 +57,13 @@ class PublishRunViewModel(
 
     fun loadLocalRuns() {
         viewModelScope.launch {
-            _isLoading.value = true
+            // Only set initial loading if it's the very first load, otherwise rely on isRefreshing
+            if (!_isLoading.value) { // Prevent showing initial loading spinner on subsequent refreshes
+                _isRefreshing.value = true // Set refreshing to true for pull-to-refresh
+            }
+
             _errorMessage.value = null
+            _successMessage.value = null // Clear messages on refresh
             try {
                 val runs = runDao.getAllRuns()
                 _localRuns.clear()
@@ -59,15 +71,16 @@ class PublishRunViewModel(
             } catch (e: Exception) {
                 _errorMessage.value = "Greška pri učitavanju lokalnih trčanja: ${e.message}"
             } finally {
-                _isLoading.value = false
+                _isLoading.value = false // Ensure initial loading is false (might be true from init)
+                _isRefreshing.value = false // Reset refreshing state after completion/error
             }
         }
     }
 
     fun selectRun(run: RunEntity) {
         _selectedRun.value = run
-        _caption.value = "" // Clear caption when a new run is selected
-        clearMessages() // Clear any previous messages
+        _caption.value = ""
+        clearMessages()
     }
 
     fun onCaptionChanged(newCaption: String) {
@@ -97,7 +110,6 @@ class PublishRunViewModel(
 
         viewModelScope.launch {
             try {
-                // Fetch location data for the selected run
                 val locationData = runDao.getLocationDataForRun(runToPublish.id)
                 val polylineCoords = locationData.map { GeoPoint(it.lat, it.lon) }
 
@@ -112,20 +124,16 @@ class PublishRunViewModel(
                     caption = _caption.value,
                     likesCount = 0,
                     commentsCount = 0,
-                    timestamp = Date() // Firestore will set ServerTimestamp, but good to provide a local Date
+                    timestamp = Date()
                 )
 
                 val result = runPostRepository.createRunPost(runPost)
                 if (result.isSuccess) {
                     _successMessage.value = "Trčanje uspješno objavljeno!"
-                    // Optionally, update the local run to mark it as published
-                    // You would need to add an 'isPublished: Boolean' field to RunEntity
-                    // and then update the RunEntity in the Room database.
-                    // For now, we'll just reload the list.
-                    loadLocalRuns() // Reload runs to reflect changes (if any, like marking as published)
-                    _selectedRun.value = null // Clear selected run after publishing
-                    _caption.value = "" // Clear caption
-                    updateUserProfileStats(currentUserId, runToPublish.distance, 1) // Update user stats
+                    loadLocalRuns()
+                    _selectedRun.value = null
+                    _caption.value = ""
+                    updateUserProfileStats(currentUserId, runToPublish.distance, 1)
                 } else {
                     _errorMessage.value = result.exceptionOrNull()?.message ?: "Greška pri objavi trčanja."
                 }
@@ -154,7 +162,6 @@ class PublishRunViewModel(
             }
         }
     }
-
 
     fun clearMessages() {
         _errorMessage.value = null

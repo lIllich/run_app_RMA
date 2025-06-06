@@ -12,29 +12,34 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.run_app_rma.presentation.common.RunPostCard // Import the new reusable card
+import com.example.run_app_rma.presentation.common.RunPostCard
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.Locale
+import com.google.accompanist.swiperefresh.SwipeRefresh // Import SwipeRefresh
+import com.google.accompanist.swiperefresh.rememberSwipeRefreshState // Import rememberSwipeRefreshState
 
-@OptIn(ExperimentalMaterial3Api::class) // Opt-in for ExperimentalMaterial3Api for TopAppBar
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FeedScreen(
     modifier: Modifier = Modifier,
-    feedViewModel: FeedViewModel = viewModel(), // ViewModel will be provided by MainScreenWithTabs
-    onUserClick: (String) -> Unit, // New parameter: Lambda to navigate to another user's profile
-    onPostClick: (String) -> Unit // New parameter: Lambda to navigate to a specific post
+    feedViewModel: FeedViewModel = viewModel(),
+    onUserClick: (String) -> Unit,
+    onPostClick: (String) -> Unit
 ) {
-    // Observe the single list of all posts
     val allPosts = feedViewModel.allPosts
-    // Corrected: Observe isInitialLoading from FeedViewModel
     val isInitialLoading: Boolean by feedViewModel.isInitialLoading.collectAsState()
+    val isRefreshing by feedViewModel.isRefreshing.collectAsState() // Observe refreshing state
     val errorMessage by feedViewModel.errorMessage.collectAsState()
-    val userProfiles by feedViewModel.userProfiles // Directly observe the State<Map>
-    val userLikedPostIds by feedViewModel.userLikedPostIds.collectAsState() // Observe liked post IDs
+    val userProfiles by feedViewModel.userProfiles
+    val userLikedPostIds by feedViewModel.userLikedPostIds.collectAsState()
 
     val dateFormat = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
     val decimalFormat = DecimalFormat("#.##")
+
+    val swipeRefreshState = rememberSwipeRefreshState(isRefreshing = isRefreshing)
+
 
     Scaffold(
         topBar = {
@@ -42,10 +47,10 @@ fun FeedScreen(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("Feed")
-                        if (isInitialLoading) {
+                        if (isInitialLoading && !isRefreshing) { // Show initial loading only if not refreshing
                             Spacer(modifier = Modifier.width(8.dp))
                             CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp), // Smaller size for TopAppBar
+                                modifier = Modifier.size(20.dp),
                                 strokeWidth = 2.dp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -55,43 +60,50 @@ fun FeedScreen(
             )
         }
     ) { innerPadding ->
-        Column(
+        // Wrap the content with SwipeRefresh
+        SwipeRefresh(
+            state = swipeRefreshState,
+            onRefresh = { feedViewModel.loadFeedPosts() }, // Trigger refresh
             modifier = modifier
                 .fillMaxSize()
-                .padding(innerPadding) // Apply padding from Scaffold
-                .padding(horizontal = 16.dp), // Add horizontal padding for content
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(innerPadding)
         ) {
-            // Removed the old CircularProgressIndicator from here as it's now in the TopAppBar
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                errorMessage?.let { message ->
+                    Text(
+                        text = message,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(8.dp)
+                    )
+                }
 
-            errorMessage?.let { message ->
-                Text(
-                    text = message,
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(8.dp)
-                )
-            }
-
-            // Check if allPosts is empty and not initially loading
-            if (allPosts.isEmpty() && !isInitialLoading) { // Corrected: Use isInitialLoading
-                Text("Nema objava za prikaz.")
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    // Display all posts from the 'allPosts' list
-                    items(allPosts, key = { it.id }) { post ->
-                        RunPostCard(
-                            post = post,
-                            user = userProfiles[post.userId], // Access user profile by post.userId
-                            dateFormat = dateFormat,
-                            decimalFormat = decimalFormat,
-                            onLikeClick = { postId, isLiked -> feedViewModel.toggleLike(postId, isLiked) },
-                            isLiked = userLikedPostIds.contains(post.id), // Pass actual liked status
-                            onUserClick = onUserClick, // Pass the onUserClick lambda
-                            onPostClick = onPostClick // Pass the onPostClick lambda
-                        )
+                if (allPosts.isEmpty() && !isInitialLoading && !isRefreshing) { // Only show "No posts" if not loading/refreshing
+                    Text("Nema objava za prikaz.")
+                } else if (allPosts.isEmpty() && isInitialLoading && !isRefreshing) {
+                    // This state should ideally be covered by the CircularProgressIndicator in TopAppBar
+                    // or by the isInitialLoading check. Keeping it explicit for safety.
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        items(allPosts, key = { it.id }) { post ->
+                            RunPostCard(
+                                post = post,
+                                user = userProfiles[post.userId],
+                                dateFormat = dateFormat,
+                                decimalFormat = decimalFormat,
+                                onLikeClick = { postId, isLiked -> feedViewModel.toggleLike(postId, isLiked) },
+                                isLiked = userLikedPostIds.contains(post.id),
+                                onUserClick = onUserClick,
+                                onPostClick = onPostClick
+                            )
+                        }
                     }
                 }
             }

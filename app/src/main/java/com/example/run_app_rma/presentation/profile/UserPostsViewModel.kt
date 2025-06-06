@@ -32,10 +32,14 @@ class UserPostsViewModel(
     private val _userLikedPostIds = MutableStateFlow<Set<String>>(emptySet())
     val userLikedPostIds: StateFlow<Set<String>> = _userLikedPostIds.asStateFlow()
 
-    private val _isLoading = MutableStateFlow(false) // General screen loading
+    private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    private val _isLoadingAction = MutableStateFlow(false) // Specific action loading (e.g., like/unlike)
+    // New: State for pull-to-refresh
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
+    private val _isLoadingAction = MutableStateFlow(false)
     val isLoadingAction: StateFlow<Boolean> = _isLoadingAction.asStateFlow()
 
     private val _errorMessage = MutableStateFlow<String?>(null)
@@ -46,79 +50,78 @@ class UserPostsViewModel(
 
     private val TAG = "UserPostsViewModel"
 
-    // Changed from private var to var to allow access from Composable
     var viewedUserId: String? = null
 
     init {
         savedStateHandle.get<String>("userId")?.let { userId ->
             viewedUserId = userId
-            // The calls in init block are now redundant due to LaunchedEffect in Screen,
-            // but keeping them for ViewModel's internal consistency if used elsewhere.
-            // Screen's LaunchedEffect will ensure refresh on re-composition.
-            // fetchUserPosts()
-            // fetchUserLikedPosts(firebaseAuth.currentUser?.uid)
-            // fetchPostAuthorProfile(userId)
+            // Initial fetches will now be managed by the screen's DisposableEffect
+            // or by explicit calls when needed. ViewModel init is for setting up flows.
         }
     }
 
-    fun fetchUserPosts() {
+    fun fetchAllUserDataForScreen() {
         val userId = viewedUserId
+        val currentLoggedInUserId = firebaseAuth.currentUser?.uid
+
         if (userId == null) {
             _errorMessage.value = "User ID is missing to fetch posts."
+            _isLoading.value = false
+            _isRefreshing.value = false
             return
         }
 
-        _isLoading.value = true
+        // Only set initial loading if it's the very first load, otherwise rely on isRefreshing
+        if (!_isLoading.value) { // Prevent showing initial loading spinner on subsequent refreshes
+            _isRefreshing.value = true // Set refreshing to true for pull-to-refresh
+        }
+
         _errorMessage.value = null
         viewModelScope.launch {
             try {
-                // Corrected: Use getRunPostsByUsers which takes a list of user IDs
-                val result = runPostRepository.getRunPostsByUsers(listOf(userId))
-                if (result.isSuccess) {
-                    _userPosts.value = result.getOrNull()?.sortedByDescending { it.timestamp } ?: emptyList()
+                // Fetch user's posts
+                val postsResult = runPostRepository.getRunPostsByUsers(listOf(userId))
+                if (postsResult.isSuccess) {
+                    _userPosts.value = postsResult.getOrNull()?.sortedByDescending { it.timestamp } ?: emptyList()
                     Log.d(TAG, "Fetched ${_userPosts.value.size} posts for user $userId")
                 } else {
-                    _errorMessage.value = result.exceptionOrNull()?.message ?: "Failed to load user posts."
-                    Log.e(TAG, "Error fetching user posts for $userId: ${result.exceptionOrNull()?.message}")
+                    _errorMessage.value = postsResult.exceptionOrNull()?.message ?: "Failed to load user posts."
+                    Log.e(TAG, "Error fetching user posts for $userId: ${postsResult.exceptionOrNull()?.message}")
                 }
+
+                // Fetch current user's liked posts
+                if (currentLoggedInUserId != null) {
+                    val likesResult = runPostRepository.getLikesByUser(currentLoggedInUserId)
+                    if (likesResult.isSuccess) {
+                        _userLikedPostIds.value = likesResult.getOrNull()?.map { it.postId }?.toSet() ?: emptySet()
+                        Log.d(TAG, "Fetched ${_userLikedPostIds.value.size} liked posts for current user $currentLoggedInUserId")
+                    } else {
+                        Log.e(TAG, "Error fetching current user's liked posts: ${likesResult.exceptionOrNull()?.message}")
+                    }
+                } else {
+                    _userLikedPostIds.value = emptySet()
+                    Log.d(TAG, "Current logged in user is null, liked posts set to empty.")
+                }
+
+                // Fetch the post author's profile
+                val authorResult = userRepository.getUserProfile(userId)
+                if (authorResult.isSuccess) {
+                    _postAuthor.value = authorResult.getOrNull()
+                } else {
+                    Log.e(TAG, "Error fetching post author profile for $userId: ${authorResult.exceptionOrNull()?.message}")
+                }
+
             } catch (e: Exception) {
-                _errorMessage.value = e.message ?: "An unexpected error occurred while loading posts."
-                Log.e(TAG, "Unexpected error in fetchUserPosts: ${e.message}", e)
+                _errorMessage.value = e.message ?: "An unexpected error occurred while loading data."
+                Log.e(TAG, "Unexpected error in fetchAllUserDataForScreen: ${e.message}", e)
             } finally {
                 _isLoading.value = false
+                _isRefreshing.value = false // Reset refreshing state after completion/error
+                Log.d(TAG, "fetchAllUserDataForScreen finished. isLoading set to false, isRefreshing set to false.")
             }
         }
     }
 
-    // Changed from private fun to fun to allow access from Composable
-    fun fetchUserLikedPosts(currentLoggedInUserId: String?) {
-        if (currentLoggedInUserId == null) {
-            _userLikedPostIds.value = emptySet()
-            Log.d(TAG, "fetchUserLikedPosts called but currentLoggedInUserId is null.")
-            return
-        }
-        viewModelScope.launch {
-            val result = runPostRepository.getLikesByUser(currentLoggedInUserId)
-            if (result.isSuccess) {
-                _userLikedPostIds.value = result.getOrNull()?.map { it.postId }?.toSet() ?: emptySet()
-                Log.d(TAG, "Fetched ${_userLikedPostIds.value.size} liked posts for current user $currentLoggedInUserId")
-            } else {
-                Log.e(TAG, "Error fetching current user's liked posts: ${result.exceptionOrNull()?.message}")
-            }
-        }
-    }
-
-    // Changed from private fun to fun to allow access from Composable
-    fun fetchPostAuthorProfile(userId: String) {
-        viewModelScope.launch {
-            val result = userRepository.getUserProfile(userId)
-            result.onSuccess { user ->
-                _postAuthor.value = user
-            }.onFailure { e ->
-                Log.e(TAG, "Error fetching post author profile for $userId: ${e.message}")
-            }
-        }
-    }
 
     fun toggleLike(postId: String, isCurrentlyLiked: Boolean) {
         val currentUserId = firebaseAuth.currentUser?.uid
@@ -129,15 +132,14 @@ class UserPostsViewModel(
         }
         Log.d(TAG, "Toggling like for post $postId by user $currentUserId. Currently liked: $isCurrentlyLiked")
 
-        _isLoadingAction.value = true // Set action loading to true
-        _errorMessage.value = null // Clear any previous error messages
+        _isLoadingAction.value = true
+        _errorMessage.value = null
 
-        // Optimistic update: Immediately reflect the new like status in the UI
         val previousLikedState = _userLikedPostIds.value
         _userLikedPostIds.value = if (isCurrentlyLiked) {
-            _userLikedPostIds.value.minus(postId) // Remove postId from set
+            _userLikedPostIds.value.minus(postId)
         } else {
-            _userLikedPostIds.value.plus(postId) // Add postId to set
+            _userLikedPostIds.value.plus(postId)
         }
         Log.d(TAG, "Optimistically updated userLikedPostIds: ${_userLikedPostIds.value}. Icon should change.")
 
@@ -151,23 +153,18 @@ class UserPostsViewModel(
 
                 result.onSuccess {
                     Log.d(TAG, "Like/Unlike successful for post $postId. Re-fetching posts and likes for confirmation.")
-                    // Re-fetch posts for the viewed user to get updated like count
-                    fetchUserPosts()
-                    // Re-fetch current user's likes to ensure _userLikedPostIds is in sync with DB
-                    fetchUserLikedPosts(currentUserId)
+                    fetchAllUserDataForScreen() // Refresh all data to ensure consistency
                 }.onFailure { e ->
-                    // Revert optimistic update on failure
                     _userLikedPostIds.value = previousLikedState
                     _errorMessage.value = e.message ?: "Greška pri lajkanju/otlajkavanju objave."
                     Log.e(TAG, "Error liking/unliking post $postId: ${e.message}", e)
                 }
             } catch (e: Exception) {
-                // Revert optimistic update on unexpected error
                 _userLikedPostIds.value = previousLikedState
                 _errorMessage.value = e.message ?: "Došlo je do neočekivane greške pri lajkanju."
                 Log.e(TAG, "Unexpected error in toggleLike", e)
             } finally {
-                _isLoadingAction.value = false // Hide action loading
+                _isLoadingAction.value = false
                 Log.d(TAG, "toggleLike operation finished. isLoadingAction: ${_isLoadingAction.value}")
             }
         }
