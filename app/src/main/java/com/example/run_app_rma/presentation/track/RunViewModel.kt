@@ -17,23 +17,20 @@ import com.example.run_app_rma.sensor.tracking.LocationService
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.io.File
 
 class RunViewModel(
     private val runDao: RunDao,
     private val locationDao: LocationDao,
-    private val locationService: LocationService,
-    private val onStartTrackingService: (Long) -> Unit,
-    private val onStopTrackingService: () -> Unit
+    private val locationService: LocationService
 ) : ViewModel() {
 
     private val _isTracking = MutableStateFlow(false)
     val isTracking: StateFlow<Boolean> = _isTracking
 
     private val _currentRunId = MutableStateFlow<Long?>(null)
-    val currentRunId: StateFlow<Long?> = _currentRunId.asStateFlow()
+    val currentRunId: StateFlow<Long?> = _currentRunId
 
     private var currentRunStartTime: Long = 0L
     private var currentRunLocations = mutableStateListOf<Location>()
@@ -82,10 +79,6 @@ class RunViewModel(
             val runId = runDao.insert(newRun)
             _currentRunId.value = runId
         }
-
-        _currentRunId.value?.let { id ->
-            onStartTrackingService(id)
-        }
     }
 
     fun stopRun() {
@@ -118,7 +111,6 @@ class RunViewModel(
             )
             runDao.update(updatedRun)
 
-            onStopTrackingService()
             _currentRunId.value = null
         }
     }
@@ -132,14 +124,12 @@ class RunViewModel(
     class Factory(
         private val runDao: RunDao,
         private val locationDao: LocationDao,
-        private val locationService: LocationService,
-        private val onStartTrackingService: (Long) -> Unit,
-        private val onStopTrackingService: () -> Unit
+        private val locationService: LocationService
     ) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(RunViewModel::class.java)) {
                 @Suppress("UNCHECKED_CAST")
-                return RunViewModel(runDao, locationDao, locationService, onStartTrackingService, onStopTrackingService) as T
+                return RunViewModel(runDao, locationDao, locationService) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class")
         }

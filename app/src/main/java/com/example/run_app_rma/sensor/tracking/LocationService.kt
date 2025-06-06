@@ -1,4 +1,3 @@
-// src/main/java/com/example/run_app_rma/sensor/tracking/LocationService.kt
 package com.example.run_app_rma.sensor.tracking
 
 import android.annotation.SuppressLint
