@@ -21,6 +21,7 @@ import com.example.run_app_rma.domain.model.RunEntity
 import com.example.run_app_rma.domain.model.SensorType
 import com.example.run_app_rma.sensor.tracking.LocationService
 import com.example.run_app_rma.sensor.tracking.SensorService
+import com.example.run_app_rma.services.ShortcutManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -76,13 +77,15 @@ class RunViewModel(
         } else {
             Log.w("Location", "Location permission not granted")
         }
-        // sensor tracking is handled by the SensorService
+        // Sensor tracking is handled by the SensorService
+        ShortcutManager.updateShortcuts(application.applicationContext, false)
     }
 
     fun startRun() {
         if (_isTracking.value) return
 
         _isTracking.value = true
+        ShortcutManager.updateShortcuts(getApplication(), true)
         currentRunStartTime = System.currentTimeMillis()
         currentRunLocations.clear()
 
@@ -112,6 +115,7 @@ class RunViewModel(
 
         val endTime = System.currentTimeMillis()
         _isTracking.value = false
+        ShortcutManager.updateShortcuts(getApplication(), false)
 
         viewModelScope.launch {
             val runId = _currentRunId.value!!

@@ -1,5 +1,6 @@
 package com.example.run_app_rma.presentation.main
 
+import android.app.Application
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -49,6 +50,7 @@ enum class TabScreen(val title: String, val icon: ImageVector) {
 @Composable
 fun MainScreenWithTabs(
     modifier: Modifier = Modifier,
+    application: Application,
     runViewModel: RunViewModel,
     userRepository: UserRepository,
     firebaseAuth: FirebaseAuth,
@@ -99,6 +101,7 @@ fun MainScreenWithTabs(
 
     val feedViewModel: FeedViewModel = viewModel(
         factory = FeedViewModel.Factory(
+            application = application,
             runPostRepository = runPostRepository,
             userRepository = userRepository,
             firebaseAuth = firebaseAuth,

@@ -252,4 +252,19 @@ class RunPostRepository(firestore: FirebaseFirestore = FirebaseFirestore.getInst
             Result.failure(e)
         }
     }
+
+    suspend fun getPostsForUser(userId: String, limit: Long): Result<List<RunPost>> {
+        return try {
+            val posts = postsCollection
+                .whereEqualTo("userId", userId)
+                .orderBy("timestamp", Query.Direction.DESCENDING)
+                .limit(limit)
+                .get()
+                .await()
+                .toObjects(RunPost::class.java)
+            Result.success(posts)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }

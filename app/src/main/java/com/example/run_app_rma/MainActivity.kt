@@ -1,5 +1,6 @@
 package com.example.run_app_rma
-
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
@@ -47,13 +48,9 @@ import com.example.run_app_rma.data.remote.AuthRepository
 import com.example.run_app_rma.presentation.login.LoginScreen
 import com.example.run_app_rma.presentation.main.MainScreenWithTabs
 import com.example.run_app_rma.presentation.profile.EditProfileScreen
-import com.example.run_app_rma.presentation.profile.EditProfileViewModel
 import com.example.run_app_rma.presentation.profile.OtherUserProfileScreen
-import com.example.run_app_rma.presentation.profile.OtherUserProfileViewModel
 import com.example.run_app_rma.presentation.profile.UserListScreen
-import com.example.run_app_rma.presentation.profile.UserListViewModel
 import com.example.run_app_rma.presentation.profile.UserPostsScreen
-import com.example.run_app_rma.presentation.profile.UserPostsViewModel
 import com.example.run_app_rma.presentation.publish.RunDetailsScreen
 import com.example.run_app_rma.presentation.publish.RunDetailsViewModel
 import com.example.run_app_rma.presentation.runpost.RunPostScreen
@@ -85,6 +82,8 @@ class MainActivity : ComponentActivity() {
     private lateinit var firebaseAuth: FirebaseAuth
     private lateinit var firebaseStorage: FirebaseStorage
 
+    private var shortcutAction by mutableStateOf<String?>(null)
+    
     private val TAG = "MainActivity"
 
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
@@ -94,8 +93,6 @@ class MainActivity : ComponentActivity() {
         val fineLocationGranted = permissions[android.Manifest.permission.ACCESS_FINE_LOCATION] ?: false
         val coarseLocationGranted = permissions[android.Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
         val cameraGranted = permissions[android.Manifest.permission.CAMERA] ?: false
-        val readExternalStorageGranted = permissions[android.Manifest.permission.READ_EXTERNAL_STORAGE] ?: false
-        val writeExternalStorageGranted = permissions[android.Manifest.permission.WRITE_EXTERNAL_STORAGE] ?: false
         val readMediaImagesGranted = permissions[android.Manifest.permission.READ_MEDIA_IMAGES] ?: false
         val activityRecognitionGranted = permissions[android.Manifest.permission.ACTIVITY_RECOGNITION] ?: false
         permissions[android.Manifest.permission.FOREGROUND_SERVICE] ?: false
@@ -108,7 +105,7 @@ class MainActivity : ComponentActivity() {
         if (cameraGranted) {
             Toast.makeText(this, "Camera permission granted.", Toast.LENGTH_SHORT).show()
         }
-        if (readExternalStorageGranted || writeExternalStorageGranted || readMediaImagesGranted) {
+        if (readMediaImagesGranted) {
             Toast.makeText(this, "Storage permission granted.", Toast.LENGTH_SHORT).show()
         }
 
@@ -150,11 +147,8 @@ class MainActivity : ComponentActivity() {
                 android.Manifest.permission.ACCESS_FINE_LOCATION,
                 android.Manifest.permission.ACCESS_COARSE_LOCATION,
                 android.Manifest.permission.CAMERA,
-                android.Manifest.permission.READ_EXTERNAL_STORAGE,
-                android.Manifest.permission.WRITE_EXTERNAL_STORAGE,
                 android.Manifest.permission.READ_MEDIA_IMAGES,
                 android.Manifest.permission.ACTIVITY_RECOGNITION,
-                android.Manifest.permission.FOREGROUND_SERVICE
             )
         )
 
@@ -162,10 +156,11 @@ class MainActivity : ComponentActivity() {
             android.Manifest.permission.POST_NOTIFICATIONS
         )
 
+        handleIntent(intent)
+
         setContent {
             Run_app_RMATheme {
                 val navController = rememberNavController()
-
                 val isLoggedIn by remember { mutableStateOf(authRepository.isLoggedIn()) }
 
                 // observe the current intent for notification handling
@@ -176,7 +171,7 @@ class MainActivity : ComponentActivity() {
                 LaunchedEffect(currentIntent.value) {
                     currentIntent.value?.let { incomingIntent ->
                         handleNotificationIntent(navController, incomingIntent)
-                        // lear the intent's data after handling to prevent re-processing
+                        // clear the intent's data after handling to prevent re-processing
                         incomingIntent.replaceExtras(Bundle())
                         incomingIntent.data = null
                     }
@@ -206,7 +201,24 @@ class MainActivity : ComponentActivity() {
                                 )
                             )
 
+                            LaunchedEffect(shortcutAction) {
+                                shortcutAction?.let { action ->
+                                    when (action) {
+                                        "ACTION_START_RUN" -> {
+                                            runViewModel.startRun()
+                                            Toast.makeText(this@MainActivity, "Started run from shortcut", Toast.LENGTH_SHORT).show()
+                                        }
+                                        "ACTION_STOP_RUN" -> {
+                                            runViewModel.stopRun()
+                                            Toast.makeText(this@MainActivity, "Stopped run from shortcut", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                    shortcutAction = null // Consume the action
+                                }
+                            }
+
                             MainScreenWithTabs(
+                                application = application,
                                 runViewModel = runViewModel,
                                 userRepository = userRepository,
                                 firebaseAuth = firebaseAuth,
@@ -245,16 +257,8 @@ class MainActivity : ComponentActivity() {
                         composable("edit_profile/{userId}") { backStackEntry ->
                             val userId = backStackEntry.arguments?.getString("userId")
                             if (userId != null) {
-                                val editProfileViewModel: EditProfileViewModel = viewModel(
-                                    factory = EditProfileViewModel.Factory(
-                                        userRepository = userRepository,
-                                        firebaseAuth = firebaseAuth,
-                                        firebaseStorage = firebaseStorage
-                                    )
-                                )
                                 EditProfileScreen(
                                     userId = userId,
-                                    editProfileViewModel = editProfileViewModel,
                                     onProfileUpdated = {
                                         navController.popBackStack()
                                     },
@@ -265,78 +269,50 @@ class MainActivity : ComponentActivity() {
                                 navController.popBackStack()
                             }
                         }
-                        composable("user_posts_screen/{userId}") { backStackEntry ->
-                            val userId = backStackEntry.arguments?.getString("userId")
-                            if (userId != null) {
-                                UserPostsScreen(
-                                    userPostsViewModel = viewModel(
-                                        factory = UserPostsViewModel.Factory
-                                    ),
-                                    onBack = { navController.popBackStack() },
-                                    onUserClick = { clickedUserId ->
-                                        navController.navigate("other_user_profile_screen/$clickedUserId")
-                                    },
-                                    onPostClick = { postId ->
-                                        navController.navigate("run_post_screen/$postId")
-                                    }
-                                )
-                            } else {
-                                Toast.makeText(this@MainActivity, "User ID missing for posts.", Toast.LENGTH_SHORT).show()
-                                navController.popBackStack()
-                            }
+                        composable("user_posts_screen/{userId}") {
+                            UserPostsScreen(
+                                onBack = { navController.popBackStack() },
+                                onUserClick = { clickedUserId ->
+                                    navController.navigate("other_user_profile_screen/$clickedUserId")
+                                },
+                                onPostClick = { postId ->
+                                    navController.navigate("run_post_screen/$postId")
+                                }
+                            )
                         }
-                        composable("user_list_screen/{listType}/{userId}") { backStackEntry ->
-                            val userId = backStackEntry.arguments?.getString("userId")
-                            val listType = backStackEntry.arguments?.getString("listType")
-                            if (userId != null && listType != null) {
-                                UserListScreen(
-                                    userListViewModel = viewModel(
-                                        factory = UserListViewModel.Factory
-                                    ),
-                                    onBack = { navController.popBackStack() },
-                                    onUserClick = { clickedUserId ->
-                                        navController.navigate("other_user_profile_screen/$clickedUserId")
-                                    }
-                                )
-                            } else {
-                                Toast.makeText(this@MainActivity, "User ID or list type missing.", Toast.LENGTH_SHORT).show()
-                                navController.popBackStack()
-                            }
+                        composable("user_list_screen/{listType}/{userId}") {
+                            UserListScreen(
+                                onBack = { navController.popBackStack() },
+                                onUserClick = { clickedUserId ->
+                                    navController.navigate("other_user_profile_screen/$clickedUserId")
+                                }
+                            )
                         }
-                        composable("other_user_profile_screen/{userId}") { backStackEntry ->
-                            val userId = backStackEntry.arguments?.getString("userId")
-                            if (userId != null) {
-                                OtherUserProfileScreen(
-                                    otherUserProfileViewModel = viewModel(
-                                        factory = OtherUserProfileViewModel.Factory
-                                    ),
-                                    onBack = { navController.popBackStack() },
-                                    onEditProfile = { currentUserId ->
-                                        navController.navigate("edit_profile/$currentUserId")
-                                    },
-                                    onLogout = {
-                                        authRepository.logout()
-                                        navController.navigate("login") {
-                                            popUpTo("main_screen") { inclusive = true }
-                                        }
-                                    },
-                                    onViewUserPosts = { viewedUserId ->
-                                        navController.navigate("user_posts_screen/$viewedUserId")
-                                    },
-                                    onViewFollowing = { viewedUserId ->
-                                        navController.navigate("user_list_screen/following/$viewedUserId")
-                                    },
-                                    onViewFollowers = { viewedUserId ->
-                                        navController.navigate("user_list_screen/followers/$viewedUserId")
-                                    },
-                                    onUserClick = { clickedUserId ->
-                                        navController.navigate("other_user_profile_screen/$clickedUserId")
+                        composable("other_user_profile_screen/{userId}") {
+                            OtherUserProfileScreen(
+                                onBack = { navController.popBackStack() },
+                                onEditProfile = { currentUserId ->
+                                    navController.navigate("edit_profile/$currentUserId")
+                                },
+                                onLogout = {
+                                    authRepository.logout()
+                                    navController.navigate("login") {
+                                        popUpTo("main_screen") { inclusive = true }
                                     }
-                                )
-                            } else {
-                                Toast.makeText(this@MainActivity, "User ID missing for other user profile.", Toast.LENGTH_SHORT).show()
-                                navController.popBackStack()
-                            }
+                                },
+                                onViewUserPosts = { viewedUserId ->
+                                    navController.navigate("user_posts_screen/$viewedUserId")
+                                },
+                                onViewFollowing = { viewedUserId ->
+                                    navController.navigate("user_list_screen/following/$viewedUserId")
+                                },
+                                onViewFollowers = { viewedUserId ->
+                                    navController.navigate("user_list_screen/followers/$viewedUserId")
+                                },
+                                onUserClick = { clickedUserId ->
+                                    navController.navigate("other_user_profile_screen/$clickedUserId")
+                                }
+                            )
                         }
                         composable("run_post_screen/{postId}") { backStackEntry ->
                             val postId = backStackEntry.arguments?.getString("postId")
@@ -408,6 +384,23 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        // Set the new intent for Compose to observe and handle notifications
+        setIntent(intent)
+        // Handle shortcut actions from the new intent
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(intent: Intent?) {
+        intent ?: return
+        when (intent.action) {
+            "ACTION_START_RUN", "ACTION_STOP_RUN" -> {
+                shortcutAction = intent.action
+            }
+        }
+    }
+
     private fun handleNotificationIntent(navController: NavController, intent: Intent?) {
         intent?.let { incomingIntent ->
             Log.d(TAG, "handleNotificationIntent: Received intent. Action: ${incomingIntent.action}, Data: ${incomingIntent.dataString}")
@@ -457,13 +450,6 @@ class MainActivity : ComponentActivity() {
                 Log.d(TAG, "handleNotificationIntent: Intent does not have 'type' extra. Not a handled notification intent.")
             }
         } ?: Log.d(TAG, "handleNotificationIntent: Received null intent.")
-    }
-
-    override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
-        // set the new intent for the current activity instance
-        // for LaunchedEffect(currentIntent.value) to react to new intents
-        setIntent(intent)
     }
 
     @Preview(showBackground = true)
