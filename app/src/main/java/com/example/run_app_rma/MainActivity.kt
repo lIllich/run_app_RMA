@@ -1,6 +1,5 @@
 package com.example.run_app_rma
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
+
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
@@ -29,6 +28,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -53,6 +53,8 @@ import com.example.run_app_rma.presentation.profile.UserListScreen
 import com.example.run_app_rma.presentation.profile.UserPostsScreen
 import com.example.run_app_rma.presentation.publish.RunDetailsScreen
 import com.example.run_app_rma.presentation.publish.RunDetailsViewModel
+import com.example.run_app_rma.presentation.runpost.ElevationGraphScreen
+import com.example.run_app_rma.presentation.runpost.RunMapScreen
 import com.example.run_app_rma.presentation.runpost.RunPostScreen
 import com.example.run_app_rma.presentation.runpost.RunPostViewModel
 import com.example.run_app_rma.presentation.track.RunViewModel
@@ -206,14 +208,22 @@ class MainActivity : ComponentActivity() {
                                     when (action) {
                                         "ACTION_START_RUN" -> {
                                             runViewModel.startRun()
-                                            Toast.makeText(this@MainActivity, "Started run from shortcut", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(
+                                                this@MainActivity,
+                                                "Started run from shortcut",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
                                         }
                                         "ACTION_STOP_RUN" -> {
                                             runViewModel.stopRun()
-                                            Toast.makeText(this@MainActivity, "Stopped run from shortcut", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(
+                                                this@MainActivity,
+                                                "Stopped run from shortcut",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
                                         }
                                     }
-                                    shortcutAction = null // Consume the action
+                                    shortcutAction = null
                                 }
                             }
 
@@ -265,7 +275,11 @@ class MainActivity : ComponentActivity() {
                                     onBack = { navController.popBackStack() }
                                 )
                             } else {
-                                Toast.makeText(this@MainActivity, "User ID missing for edit profile.", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(
+                                    this@MainActivity,
+                                    "User ID missing for edit profile.",
+                                    Toast.LENGTH_SHORT
+                                ).show()
                                 navController.popBackStack()
                             }
                         }
@@ -333,11 +347,30 @@ class MainActivity : ComponentActivity() {
                                     },
                                     onPostDeleted = {
                                         navController.popBackStack()
+                                    },
+                                    onViewMap = { postId ->
+                                        navController.navigate("run_map_screen/$postId")
+                                    },
+                                    onViewElevationGraph = { postId ->
+                                        navController.navigate("elevation_graph_screen/$postId")
                                     }
                                 )
                             } else {
                                 Toast.makeText(this@MainActivity, "Post ID missing.", Toast.LENGTH_SHORT).show()
                                 navController.popBackStack()
+                            }
+                        }
+                        composable("run_map_screen/{postId}") { backStackEntry ->
+                            val postId = backStackEntry.arguments?.getString("postId")
+                            postId?.let {
+                                RunMapScreen(postId = it, onBack = { navController.popBackStack() })
+                            }
+                        }
+
+                        composable("elevation_graph_screen/{postId}") { backStackEntry ->
+                            val postId = backStackEntry.arguments?.getString("postId")
+                            postId?.let {
+                                ElevationGraphScreen(postId = it, onBack = { navController.popBackStack() })
                             }
                         }
                         composable("run_details_screen/{runId}") { backStackEntry ->
@@ -386,9 +419,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        // Set the new intent for Compose to observe and handle notifications
+        // set the new intent for Compose to observe and handle notifications
         setIntent(intent)
-        // Handle shortcut actions from the new intent
+        // handle shortcut actions from the new intent
         handleIntent(intent)
     }
 

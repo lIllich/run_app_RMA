@@ -91,7 +91,9 @@ fun RunPostScreen(
     onUserClick: (String) -> Unit,
     onViewLikedUsers: (String, String) -> Unit,
     onViewComments: (String) -> Unit,
-    onPostDeleted: () -> Unit
+    onPostDeleted: () -> Unit,
+    onViewMap: (String) -> Unit,
+    onViewElevationGraph: (String) -> Unit
 ) {
     val runPost by runPostViewModel.runPost.collectAsState()
     val postUser by runPostViewModel.postUser.collectAsState()
@@ -280,6 +282,29 @@ fun RunPostScreen(
                                 style = MaterialTheme.typography.bodyLarge
                             )
                             Text("Trajanje", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // elevation graph and map buttons
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly,        // distribute buttons evenly
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Button(
+                            onClick = { runPost?.id?.let { onViewMap(it) } },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Prikaži kartu")
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Button(
+                            onClick = { runPost?.id?.let { onViewElevationGraph(it) } },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Prikaži graf elevacije")
                         }
                     }
 

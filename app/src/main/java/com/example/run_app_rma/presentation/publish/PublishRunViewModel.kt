@@ -106,81 +106,83 @@ class PublishRunViewModel(
         _caption.value = newCaption
     }
 
-    fun publishSelectedRun() {
-        val runToPublish = _selectedRun.value
-        val currentUserId = firebaseAuth.currentUser?.uid
+//    fun publishSelectedRun() {
+//        val runToPublish = _selectedRun.value
+//        val currentUserId = firebaseAuth.currentUser?.uid
+//
+//        if (runToPublish == null) {
+//            _errorMessage.value = "Nema odabranog trčanja za objavu."
+//            return
+//        }
+//        if (currentUserId == null) {
+//            _errorMessage.value = "Korisnik nije prijavljen."
+//            return
+//        }
+//        if (runToPublish.endTime == null || runToPublish.distance == null || runToPublish.avgPace == null) {
+//            _errorMessage.value = "Odabrano trčanje nije završeno ili mu nedostaju podaci."
+//            return
+//        }
+//
+//        _isLoading.value = true
+//        _errorMessage.value = null
+//        _successMessage.value = null
+//
+//        viewModelScope.launch {
+//            try {
+//                val locationData = runDao.getLocationDataForRun(runToPublish.id)
+//                val polylineCoords = locationData.map { GeoPoint(it.lat, it.lon) }
+//                val pathPoints = locationData.map { LocationPoint(it.lat, it.lon, it.alt) }
+//
+//                val runPost = RunPost(
+//                    userId = currentUserId,
+//                    localRunId = runToPublish.id,
+//                    startTime = runToPublish.startTime,
+//                    endTime = runToPublish.endTime,
+//                    distance = runToPublish.distance,
+//                    avgPace = runToPublish.avgPace,
+//                    polylineCoords = polylineCoords,
+//                    pathPoints = pathPoints,
+//                    caption = _caption.value,
+//                    likesCount = 0,
+//                    commentsCount = 0,
+//                    timestamp = Date()
+//                )
+//
+//                val result = runPostRepository.createRunPost(runPost)
+//                if (result.isSuccess) {
+//                    _successMessage.value = "Trčanje uspješno objavljeno!"
+//                    loadLocalRuns()
+//                    _selectedRun.value = null
+//                    _caption.value = ""
+//                    updateUserProfileStats(currentUserId, runToPublish.distance, 1)
+//                } else {
+//                    _errorMessage.value = result.exceptionOrNull()?.message ?: "Greška pri objavi trčanja."
+//                }
+//            } catch (e: Exception) {
+//                _errorMessage.value = "Greška pri objavi trčanja: ${e.message}"
+//            } finally {
+//                _isLoading.value = false
+//            }
+//        }
+//    }
 
-        if (runToPublish == null) {
-            _errorMessage.value = "Nema odabranog trčanja za objavu."
-            return
-        }
-        if (currentUserId == null) {
-            _errorMessage.value = "Korisnik nije prijavljen."
-            return
-        }
-        if (runToPublish.endTime == null || runToPublish.distance == null || runToPublish.avgPace == null) {
-            _errorMessage.value = "Odabrano trčanje nije završeno ili mu nedostaju podaci."
-            return
-        }
-
-        _isLoading.value = true
-        _errorMessage.value = null
-        _successMessage.value = null
-
-        viewModelScope.launch {
-            try {
-                val locationData = runDao.getLocationDataForRun(runToPublish.id)
-                val polylineCoords = locationData.map { GeoPoint(it.lat, it.lon) }
-
-                val runPost = RunPost(
-                    userId = currentUserId,
-                    localRunId = runToPublish.id,
-                    startTime = runToPublish.startTime,
-                    endTime = runToPublish.endTime,
-                    distance = runToPublish.distance,
-                    avgPace = runToPublish.avgPace,
-                    polylineCoords = polylineCoords,
-                    caption = _caption.value,
-                    likesCount = 0,
-                    commentsCount = 0,
-                    timestamp = Date()
-                )
-
-                val result = runPostRepository.createRunPost(runPost)
-                if (result.isSuccess) {
-                    _successMessage.value = "Trčanje uspješno objavljeno!"
-                    loadLocalRuns()
-                    _selectedRun.value = null
-                    _caption.value = ""
-                    updateUserProfileStats(currentUserId, runToPublish.distance, 1)
-                } else {
-                    _errorMessage.value = result.exceptionOrNull()?.message ?: "Greška pri objavi trčanja."
-                }
-            } catch (e: Exception) {
-                _errorMessage.value = "Greška pri objavi trčanja: ${e.message}"
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
-
-    private fun updateUserProfileStats(userId: String, distance: Float, runsCount: Int) {
-        viewModelScope.launch {
-            val userResult = userRepository.getUserProfile(userId)
-            userResult.onSuccess { user ->
-                val currentTotalDistance = user.totalDistanceRun
-                val currentTotalRuns = user.totalRuns
-                val updates = mapOf(
-                    "totalDistanceRun" to (currentTotalDistance + distance),
-                    "totalRuns" to (currentTotalRuns + runsCount),
-                    "lastRunTimestamp" to System.currentTimeMillis()
-                )
-                userRepository.updateUserProfile(userId, updates)
-            }.onFailure { e ->
-                println("Error updating user profile: ${e.message}")
-            }
-        }
-    }
+//    private fun updateUserProfileStats(userId: String, distance: Float, runsCount: Int) {
+//        viewModelScope.launch {
+//            val userResult = userRepository.getUserProfile(userId)
+//            userResult.onSuccess { user ->
+//                val currentTotalDistance = user.totalDistanceRun
+//                val currentTotalRuns = user.totalRuns
+//                val updates = mapOf(
+//                    "totalDistanceRun" to (currentTotalDistance + distance),
+//                    "totalRuns" to (currentTotalRuns + runsCount),
+//                    "lastRunTimestamp" to System.currentTimeMillis()
+//                )
+//                userRepository.updateUserProfile(userId, updates)
+//            }.onFailure { e ->
+//                println("Error updating user profile: ${e.message}")
+//            }
+//        }
+//    }
 
     private fun clearMessages() {
         _errorMessage.value = null

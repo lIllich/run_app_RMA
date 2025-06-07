@@ -37,7 +37,7 @@ class EditProfileViewModel(
         fetchCurrentUserProfile()
     }
 
-    fun fetchCurrentUserProfile() {
+    private fun fetchCurrentUserProfile() {
         _errorMessage.value = null
         val userId = firebaseAuth.currentUser?.uid
         if (userId == null) {

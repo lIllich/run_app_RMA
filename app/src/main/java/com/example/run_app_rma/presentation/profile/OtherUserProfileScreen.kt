@@ -50,8 +50,8 @@ fun OtherUserProfileScreen(
     val followersCount by otherUserProfileViewModel.followersCount.collectAsState()
     val viewedUserPosts by otherUserProfileViewModel.viewedUserPosts.collectAsState()
 //    val userLikedPostIds by otherUserProfileViewModel.userLikedPostIds.collectAsState()
-    val isFollowingViewedUser by otherUserProfileViewModel.isFollowingViewedUser.collectAsState() // New: Observe follow status
-    val isTogglingFollow by otherUserProfileViewModel.isTogglingFollow.collectAsState() // New: Observe button loading
+    val isFollowingViewedUser by otherUserProfileViewModel.isFollowingViewedUser.collectAsState()
+    val isTogglingFollow by otherUserProfileViewModel.isTogglingFollow.collectAsState()
 
     val currentLoggedInUserId = otherUserProfileViewModel.currentLoggedInUserId
     val isCurrentUserProfile = viewedUser?.id == currentLoggedInUserId
@@ -129,7 +129,7 @@ fun OtherUserProfileScreen(
                         }
                         Button(
                             onClick = { otherUserProfileViewModel.toggleFollowViewedUser() },
-                            enabled = !isTogglingFollow, // Disable button while loading
+                            enabled = !isTogglingFollow, // disable button while loading
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = if (isFollowingViewedUser)
                                     MaterialTheme.colorScheme.secondaryContainer

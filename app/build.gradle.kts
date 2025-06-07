@@ -80,11 +80,11 @@ dependencies {
     implementation(platform(libs.firebase.bom))
 
     implementation(libs.androidx.material.icons.extended)
-    implementation(libs.androidx.foundation) // Za HorizontalPager
-    implementation(libs.androidx.foundation.layout) // Za HorizontalPager
-    implementation(libs.ui.tooling.preview) // Za Preview
+    implementation(libs.androidx.foundation)
+    implementation(libs.androidx.foundation.layout)
+    implementation(libs.ui.tooling.preview)
     implementation(libs.androidx.lifecycle.viewmodel.compose.v270)
-    implementation(libs.coil.compose) // Za učitavanje slika s URL-a (profilna slika)
+    implementation(libs.coil.compose)
 
     implementation(libs.maps.compose)
     implementation(libs.play.services.maps)

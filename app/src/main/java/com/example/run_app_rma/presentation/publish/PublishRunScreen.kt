@@ -106,36 +106,36 @@ fun PublishRunScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+//        Spacer(modifier = Modifier.height(16.dp))
 
-        selectedRun?.let { run ->
-            Text("Odabrano trčanje:", style = MaterialTheme.typography.titleSmall)
-            Text(
-                "Vrijeme: ${dateFormat.format(Date(run.startTime))} - ${run.endTime?.let { dateFormat.format(Date(it)) } ?: "N/A"}")
-            Text("Udaljenost: ${run.distance?.let { decimalFormat.format(it / 1000) } ?: "N/A"} km")
-            Text("Prosječni tempo: ${run.avgPace?.let { decimalFormat.format(it) } ?: "N/A"} min/km")
+//        selectedRun?.let { run ->
+//            Text("Odabrano trčanje:", style = MaterialTheme.typography.titleSmall)
+//            Text(
+//                "Vrijeme: ${dateFormat.format(Date(run.startTime))} - ${run.endTime?.let { dateFormat.format(Date(it)) } ?: "N/A"}")
+//            Text("Udaljenost: ${run.distance?.let { decimalFormat.format(it / 1000) } ?: "N/A"} km")
+//            Text("Prosječni tempo: ${run.avgPace?.let { decimalFormat.format(it) } ?: "N/A"} min/km")
+//
+//            Spacer(modifier = Modifier.height(16.dp))
+//
+//            OutlinedTextField(
+//                value = caption,
+//                onValueChange = { publishRunViewModel.onCaptionChanged(it) },
+//                label = { Text("Dodajte opis (opcionalno)") },
+//                modifier = Modifier.fillMaxWidth(),
+//                minLines = 3,
+//                maxLines = 5
+//            )
 
-            Spacer(modifier = Modifier.height(16.dp))
+//            Spacer(modifier = Modifier.height(16.dp))
 
-            OutlinedTextField(
-                value = caption,
-                onValueChange = { publishRunViewModel.onCaptionChanged(it) },
-                label = { Text("Dodajte opis (opcionalno)") },
-                modifier = Modifier.fillMaxWidth(),
-                minLines = 3,
-                maxLines = 5
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Button(
-                onClick = { publishRunViewModel.publishSelectedRun() },
-                enabled = !isLoading,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Objavi Trčanje")
-            }
-        }
+//            Button(
+//                onClick = { publishRunViewModel.publishSelectedRun() },
+//                enabled = !isLoading,
+//                modifier = Modifier.fillMaxWidth()
+//            ) {
+//                Text("Objavi Trčanje")
+//            }
+//        }
     }
 }
 

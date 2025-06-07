@@ -8,13 +8,13 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.run_app_rma.data.dao.LocationDao
 import com.example.run_app_rma.data.dao.RunDao
+import com.example.run_app_rma.data.firestore.model.LocationPoint
 import com.example.run_app_rma.data.firestore.model.RunPost
 import com.example.run_app_rma.data.firestore.repository.RunPostRepository
 import com.example.run_app_rma.data.firestore.repository.UserRepository
 import com.example.run_app_rma.domain.model.LocationDataEntity
 import com.example.run_app_rma.domain.model.RunEntity
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.GeoPoint
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -144,7 +144,7 @@ class RunDetailsViewModel(
                     return@launch
                 }
 
-                val polylineCoordinates = _locationData.value.map { GeoPoint(it.lat, it.lon) }
+                val pathPoints = _locationData.value.map { LocationPoint(it.lat, it.lon, it.alt) }
 
                 val runPost = RunPost(
                     userId = currentUserId,
@@ -153,7 +153,7 @@ class RunDetailsViewModel(
                     endTime = run.endTime ?: 0L,
                     distance = run.distance ?: 0f,
                     avgPace = run.avgPace ?: 0f,
-                    polylineCoords = polylineCoordinates,
+                    pathPoints = pathPoints,
                     caption = _caption.value,
                     likesCount = 0,
                     commentsCount = 0
