@@ -163,6 +163,12 @@ class RunDetailsViewModel(
                 result.onSuccess { postId ->
                     // update user's total runs and distance after successful publish
                     updateUserStats(currentUserId, run.distance ?: 0f)
+
+                    // mark run as published in local DB
+                    val updatedRun = run.copy(isPublished = true)
+                    runDao.update(updatedRun)
+                    _runDetails.value = updatedRun
+
                     _successMessage.value = "Trčanje uspješno objavljeno! Post ID: $postId"
                 }.onFailure { e ->
                     _errorMessage.value = "Greška pri objavi trčanja: ${e.message}"
@@ -283,6 +289,10 @@ class RunDetailsViewModel(
             }
         }
         return splits
+    }
+
+    fun clearSuccessMessage() {
+        _successMessage.value = null
     }
 
     class Factory(

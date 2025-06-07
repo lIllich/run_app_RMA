@@ -1,5 +1,6 @@
 package com.example.run_app_rma.presentation.publish
 
+import android.widget.Toast
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -21,6 +22,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -29,6 +31,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.run_app_rma.data.db.AppDatabase
@@ -72,6 +75,15 @@ fun RunDetailsScreen(
     val errorMessage by runDetailsViewModel.errorMessage
     val successMessage by runDetailsViewModel.successMessage
 
+    val context = LocalContext.current
+
+    LaunchedEffect(successMessage) {
+        successMessage?.let {
+            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+            runDetailsViewModel.clearSuccessMessage()
+        }
+    }
+
     val dateFormat = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
     val decimalFormat = DecimalFormat("#.##")
 
@@ -97,14 +109,6 @@ fun RunDetailsScreen(
                 Text(
                     text = message,
                     color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(8.dp)
-                )
-            }
-
-            successMessage?.let { message ->
-                Text(
-                    text = message,
-                    color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(8.dp)
                 )
             }
@@ -159,24 +163,25 @@ fun RunDetailsScreen(
                     Spacer(modifier = Modifier.height(16.dp))
                 }
 
+                if (!run.isPublished) {
+                    OutlinedTextField(
+                        value = caption,
+                        onValueChange = { runDetailsViewModel.onCaptionChanged(it) },
+                        label = { Text("Dodajte opis (opcionalno)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 3,
+                        maxLines = 5
+                    )
 
-                OutlinedTextField(
-                    value = caption,
-                    onValueChange = { runDetailsViewModel.onCaptionChanged(it) },
-                    label = { Text("Dodajte opis (opcionalno)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    minLines = 3,
-                    maxLines = 5
-                )
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Button(
-                    onClick = { runDetailsViewModel.publishRun() },
-                    enabled = !isLoading,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Objavi Trčanje")
+                    Button(
+                        onClick = { runDetailsViewModel.publishRun() },
+                        enabled = !isLoading,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Objavi Trčanje")
+                    }
                 }
             } ?: run {
                 Text("Učitavanje detalja trčanja...", modifier = Modifier.padding(16.dp))

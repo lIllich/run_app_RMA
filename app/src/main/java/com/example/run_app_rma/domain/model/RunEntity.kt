@@ -10,5 +10,6 @@ data class RunEntity(
     val endTime: Long?,
     val distance: Float?,   // meters
     val avgPace: Float?,    // min / km
-    val steps: Int?
+    val steps: Int?,
+    val isPublished: Boolean = false
 )
