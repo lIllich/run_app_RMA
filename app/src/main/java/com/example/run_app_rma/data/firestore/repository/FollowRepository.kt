@@ -1,17 +1,14 @@
 package com.example.run_app_rma.data.firestore.repository
 
-import android.util.Log // Import Log for debugging
+import android.util.Log     // for debugging
 import com.example.run_app_rma.data.firestore.model.Follow
-import com.example.run_app_rma.data.firestore.model.User
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.toObjects
 import kotlinx.coroutines.tasks.await
-import java.lang.IllegalArgumentException
 
-class FollowRepository(private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()) {
+class FollowRepository(firestore: FirebaseFirestore = FirebaseFirestore.getInstance()) {
 
     private val followsCollection = firestore.collection("follows")
-    private val TAG = "FollowRepository" // Tag for logging
+    private val TAG = "FollowRepository"    // tag for logging
 
     suspend fun followUser(followerId: String, followingId: String): Result<Unit> {
         Log.d(TAG, "followUser called: followerId=$followerId, followingId=$followingId")
@@ -20,7 +17,7 @@ class FollowRepository(private val firestore: FirebaseFirestore = FirebaseFirest
             return Result.failure(IllegalArgumentException("Cannot follow yourself"))
         }
 
-        // Add explicit validation for empty/blank IDs before proceeding
+        // explicit validation for empty/blank IDs before proceeding
         if (followerId.isBlank() || followingId.isBlank()) {
             Log.e(TAG, "Attempted to follow with blank ID: followerId='$followerId', followingId='$followingId'")
             return Result.failure(IllegalArgumentException("Follower or following ID cannot be blank."))
@@ -52,7 +49,7 @@ class FollowRepository(private val firestore: FirebaseFirestore = FirebaseFirest
     suspend fun unfollowUser(followerId: String, followingId: String): Result<Unit> {
         Log.d(TAG, "unfollowUser called: followerId=$followerId, followingId=$followingId")
 
-        // Add explicit validation for empty/blank IDs before proceeding
+        // explicit validation for empty/blank IDs before proceeding
         if (followerId.isBlank() || followingId.isBlank()) {
             Log.e(TAG, "Attempted to unfollow with blank ID: followerId='$followerId', followingId='$followingId'")
             return Result.failure(IllegalArgumentException("Follower or following ID cannot be blank."))
@@ -84,7 +81,6 @@ class FollowRepository(private val firestore: FirebaseFirestore = FirebaseFirest
     }
 
     suspend fun isFollowing(followerId: String, followingId: String): Result<Boolean> {
-        // Log.d(TAG, "isFollowing called: followerId=$followerId, followingId=$followingId") // Too chatty for frequent calls
         if (followerId.isBlank() || followingId.isBlank()) {
             Log.e(TAG, "Attempted to check isFollowing with blank ID: followerId='$followerId', followingId='$followingId'")
             return Result.failure(IllegalArgumentException("Follower or following ID cannot be blank."))
@@ -96,7 +92,6 @@ class FollowRepository(private val firestore: FirebaseFirestore = FirebaseFirest
                 .limit(1)
                 .get()
                 .await()
-            // Log.d(TAG, "isFollowing result for $followerId -> $followingId: ${!snapshot.isEmpty}")
             Result.success(!snapshot.isEmpty)
         } catch (e: Exception) {
             Log.e(TAG, "Error in isFollowing: ${e.message}", e)
@@ -116,7 +111,7 @@ class FollowRepository(private val firestore: FirebaseFirestore = FirebaseFirest
                 .get()
                 .await()
                 .toObjects(Follow::class.java)
-                .map { it.followingId } // Ensure this 'it.followingId' is never null/empty
+                .map { it.followingId }
             Log.d(TAG, "Fetched following IDs for $userId: $following")
             Result.success(following)
         } catch (e: Exception) {
@@ -137,7 +132,7 @@ class FollowRepository(private val firestore: FirebaseFirestore = FirebaseFirest
                 .get()
                 .await()
                 .toObjects(Follow::class.java)
-                .map { it.followerId } // Ensure this 'it.followerId' is never null/empty
+                .map { it.followerId }
             Log.d(TAG, "Fetched follower IDs for $userId: $followers")
             Result.success(followers)
         } catch (e: Exception) {
@@ -146,9 +141,6 @@ class FollowRepository(private val firestore: FirebaseFirestore = FirebaseFirest
         }
     }
 
-    /**
-     * Get the number of users a given user is following.
-     */
     suspend fun getFollowingCount(userId: String): Result<Int> {
         if (userId.isBlank()) {
             Log.e(TAG, "Attempted to getFollowingCount with blank userId.")
@@ -167,9 +159,6 @@ class FollowRepository(private val firestore: FirebaseFirestore = FirebaseFirest
         }
     }
 
-    /**
-     * Get the number of followers for a given user.
-     */
     suspend fun getFollowersCount(userId: String): Result<Int> {
         if (userId.isBlank()) {
             Log.e(TAG, "Attempted to getFollowersCount with blank userId.")

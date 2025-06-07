@@ -1,22 +1,22 @@
 package com.example.run_app_rma.data.firestore.repository
 
-import android.util.Log // Import Log for debugging
+import android.util.Log     // for debugging
 import com.example.run_app_rma.data.firestore.model.Comment
 import com.example.run_app_rma.data.firestore.model.Like
 import com.example.run_app_rma.data.firestore.model.RunPost
-import com.example.run_app_rma.data.firestore.model.User // Import User model
+import com.example.run_app_rma.data.firestore.model.User
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import kotlinx.coroutines.tasks.await
 import java.util.Date
 
-class RunPostRepository(private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()) {
+class RunPostRepository(firestore: FirebaseFirestore = FirebaseFirestore.getInstance()) {
 
     private val postsCollection = firestore.collection("posts")
     private val likesCollection = firestore.collection("likes")
     private val commentsCollection = firestore.collection("comments")
-    private val usersCollection = firestore.collection("users") // Reference to users collection
+    private val usersCollection = firestore.collection("users")
 
     private val TAG = "RunPostRepository"
 
@@ -48,17 +48,13 @@ class RunPostRepository(private val firestore: FirebaseFirestore = FirebaseFires
         }
     }
 
-    // New: Get all run posts by a list of user IDs
+    // get all run posts by a list of user IDs
     suspend fun getRunPostsByUsers(userIds: List<String>): Result<List<RunPost>> {
         if (userIds.isEmpty()) {
             Log.d(TAG, "getRunPostsByUsers called with empty userIds list, returning empty list.")
             return Result.success(emptyList())
         }
         return try {
-            // Firestore 'whereIn' clause has a limit of 10 values.
-            // If userIds is larger, this query will fail.
-            // For more than 10, batch queries are needed or redesign.
-            // Assuming userIds.size <= 10 for simplicity for now.
             val posts = postsCollection
                 .whereIn("userId", userIds)
                 .get()
@@ -74,7 +70,7 @@ class RunPostRepository(private val firestore: FirebaseFirestore = FirebaseFires
 
     suspend fun likePost(postId: String, userId: String): Result<Unit> {
         return try {
-            // Check if the user has already liked this post
+            // check if the user has already liked this post
             val existingLikeQuery = likesCollection
                 .whereEqualTo("postId", postId)
                 .whereEqualTo("userId", userId)
@@ -83,7 +79,7 @@ class RunPostRepository(private val firestore: FirebaseFirestore = FirebaseFires
                 .await()
 
             if (existingLikeQuery.isEmpty) {
-                // If no existing like, add a new one and increment count
+                // if no existing like, add a new one and increment count
                 val like = Like(postId = postId, userId = userId, timestamp = Date())
                 likesCollection.add(like).await()
                 postsCollection.document(postId).update("likesCount", FieldValue.increment(1)).await()
@@ -91,7 +87,7 @@ class RunPostRepository(private val firestore: FirebaseFirestore = FirebaseFires
                 Result.success(Unit)
             } else {
                 Log.d(TAG, "User $userId already liked post $postId. No action taken in DB.")
-                Result.success(Unit) // Already liked, no error
+                Result.success(Unit)
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error liking post $postId by user $userId: ${e.message}", e)
@@ -104,13 +100,13 @@ class RunPostRepository(private val firestore: FirebaseFirestore = FirebaseFires
             val querySnapshot = likesCollection
                 .whereEqualTo("postId", postId)
                 .whereEqualTo("userId", userId)
-                .limit(1) // Limit to 1, as there should only be one like per user per post
+                .limit(1)       // limit to 1 -> one like per user per post
                 .get()
                 .await()
 
             if (!querySnapshot.isEmpty) {
-                // If a like document exists, delete it and decrement count
-                val document = querySnapshot.documents.first() // Get the first (and only) matching document
+                // if a like document exists, delete it and decrement count
+                val document = querySnapshot.documents.first()
                 document.reference.delete().await()
                 postsCollection.document(postId).update("likesCount", FieldValue.increment(-1)).await()
                 Log.d(TAG, "User $userId unliked post $postId. Like count decremented in DB.")
@@ -199,7 +195,7 @@ class RunPostRepository(private val firestore: FirebaseFirestore = FirebaseFires
         return try {
             Log.d(TAG, "Starting deleteRunPost for postId: $postId")
 
-            // 1. Delete all likes associated with the post
+            // 1. delete all likes associated with the post
             Log.d(TAG, "Attempting to delete likes for post: $postId")
             val likesSnapshot = likesCollection.whereEqualTo("postId", postId).get().await()
             Log.d(TAG, "Found ${likesSnapshot.size()} likes to delete for post: $postId")
@@ -209,7 +205,7 @@ class RunPostRepository(private val firestore: FirebaseFirestore = FirebaseFires
             }
             Log.d(TAG, "Successfully deleted all likes for post $postId.")
 
-            // 2. Delete all comments associated with the post
+            // 2. delete all comments associated with the post
             Log.d(TAG, "Attempting to delete comments for post: $postId")
             val commentsSnapshot = commentsCollection.whereEqualTo("postId", postId).get().await()
             Log.d(TAG, "Found ${commentsSnapshot.size()} comments to delete for post: $postId")
@@ -219,7 +215,7 @@ class RunPostRepository(private val firestore: FirebaseFirestore = FirebaseFires
             }
             Log.d(TAG, "Successfully deleted all comments for post $postId.")
 
-            // 3. Delete the post itself
+            // 3. delete the post itself
             Log.d(TAG, "Attempting to delete the post document: $postId")
             postsCollection.document(postId).delete().await()
             Log.d(TAG, "Post $postId deleted successfully from 'posts' collection.")
@@ -231,20 +227,15 @@ class RunPostRepository(private val firestore: FirebaseFirestore = FirebaseFires
         }
     }
 
-
-    // New: Get multiple users by a list of user IDs
     suspend fun getUsersByIds(userIds: List<String>): Result<List<User>> {
         if (userIds.isEmpty()) {
             Log.d(TAG, "getUsersByIds called with empty userIds list, returning empty list.")
             return Result.success(emptyList())
         }
-        // Firestore 'whereIn' clause has a limit of 10 values. If userIds is larger,
-        // this query will fail or return incomplete results. You might need to batch these queries
-        // if you expect more than 10 user IDs at a time.
         Log.d(TAG, "Fetching users with IDs: $userIds (Max 10 IDs for whereIn query)")
         return try {
             val snapshot = usersCollection
-                .whereIn("id", userIds) // This 'id' refers to a field *within* the user document
+                .whereIn("id", userIds)
                 .get()
                 .await()
 

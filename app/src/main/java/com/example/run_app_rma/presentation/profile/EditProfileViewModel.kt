@@ -7,7 +7,6 @@ import androidx.lifecycle.viewModelScope
 import com.example.run_app_rma.data.firestore.model.User
 import com.example.run_app_rma.data.firestore.repository.UserRepository
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -78,11 +77,11 @@ class EditProfileViewModel(
 
                 var imageUrl: String? = currentUser.value?.profileImageUrl
 
-                // Handle image upload if a new URI is provided
+                // handle image upload if a new URI is provided
                 if (profileImageUri != null) {
                     val uploadResult = uploadProfileImage(userId, profileImageUri)
                     if (uploadResult.isSuccess) {
-                        imageUrl = uploadResult.getOrNull() // Get the download URL
+                        imageUrl = uploadResult.getOrNull()
                     } else {
                         _errorMessage.value = uploadResult.exceptionOrNull()?.message ?: "Failed to upload image."
                         _isLoading.value = false
@@ -93,7 +92,7 @@ class EditProfileViewModel(
                 val updates = mutableMapOf<String, Any?>()
                 if (displayName != currentUser.value?.displayName) {
                     updates["displayName"] = displayName
-                    updates["lowercaseDisplayName"] = displayName.lowercase() // Add this line
+                    updates["lowercaseDisplayName"] = displayName.lowercase()
                 }
                 if (age != currentUser.value?.age) {
                     updates["age"] = age
@@ -125,7 +124,7 @@ class EditProfileViewModel(
     private suspend fun uploadProfileImage(userId: String, uri: Uri): Result<String> {
         return try {
             val storageRef = firebaseStorage.reference
-            val imageRef = storageRef.child("profile_images/$userId/${UUID.randomUUID()}.jpg") // Ensure this path matches your rules
+            val imageRef = storageRef.child("profile_images/$userId/${UUID.randomUUID()}.jpg")
             val uploadTask = imageRef.putFile(uri).await()
             val downloadUrl = uploadTask.storage.downloadUrl.await().toString()
             Result.success(downloadUrl)

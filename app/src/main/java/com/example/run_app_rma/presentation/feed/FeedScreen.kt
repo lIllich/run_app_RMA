@@ -1,23 +1,34 @@
 package com.example.run_app_rma.presentation.feed
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.*
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.run_app_rma.presentation.common.RunPostCard
+import com.google.accompanist.swiperefresh.SwipeRefresh
+import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.Locale
-import com.google.accompanist.swiperefresh.SwipeRefresh // Import SwipeRefresh
-import com.google.accompanist.swiperefresh.rememberSwipeRefreshState // Import rememberSwipeRefreshState
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -30,7 +41,7 @@ fun FeedScreen(
 ) {
     val allPosts = feedViewModel.allPosts
     val isInitialLoading: Boolean by feedViewModel.isInitialLoading.collectAsState()
-    val isRefreshing by feedViewModel.isRefreshing.collectAsState() // Observe refreshing state
+    val isRefreshing by feedViewModel.isRefreshing.collectAsState()
     val errorMessage by feedViewModel.errorMessage.collectAsState()
     val userProfiles by feedViewModel.userProfiles
     val userLikedPostIds by feedViewModel.userLikedPostIds.collectAsState()
@@ -47,7 +58,7 @@ fun FeedScreen(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("Feed")
-                        if (isInitialLoading && !isRefreshing) { // Show initial loading only if not refreshing
+                        if (isInitialLoading && !isRefreshing) {    // show initial loading only if not refreshing
                             Spacer(modifier = Modifier.width(8.dp))
                             CircularProgressIndicator(
                                 modifier = Modifier.size(20.dp),
@@ -60,10 +71,9 @@ fun FeedScreen(
             )
         }
     ) { innerPadding ->
-        // Wrap the content with SwipeRefresh
         SwipeRefresh(
             state = swipeRefreshState,
-            onRefresh = { feedViewModel.loadFeedPosts() }, // Trigger refresh
+            onRefresh = { feedViewModel.loadFeedPosts() },
             modifier = modifier
                 .fillMaxSize()
                 .padding(innerPadding)
@@ -82,11 +92,10 @@ fun FeedScreen(
                     )
                 }
 
-                if (allPosts.isEmpty() && !isInitialLoading && !isRefreshing) { // Only show "No posts" if not loading/refreshing
+                if (allPosts.isEmpty() && !isInitialLoading && !isRefreshing) {
                     Text("Nema objava za prikaz.")
                 } else if (allPosts.isEmpty() && isInitialLoading && !isRefreshing) {
-                    // This state should ideally be covered by the CircularProgressIndicator in TopAppBar
-                    // or by the isInitialLoading check. Keeping it explicit for safety.
+                    // should be covered by the CircularProgressIndicator in TopAppBar or by the isInitialLoading check
                 } else {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),

@@ -23,21 +23,21 @@ fun LoginScreen(
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var displayName by remember { mutableStateOf("") } // Dodano za registraciju
-    var ageString by remember { mutableStateOf("") } // Dodano za registraciju, unos kao String
+    var displayName by remember { mutableStateOf("") }
+    var ageString by remember { mutableStateOf("") }
     var message by remember { mutableStateOf<String?>(null) }
     var isLoginMode by remember { mutableStateOf(true) }
-    var passwordVisible by remember { mutableStateOf(false) } // State for password visibility
+    var passwordVisible by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp),
-        verticalArrangement = Arrangement.Top, // Align content to the top
+        verticalArrangement = Arrangement.Top,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(modifier = Modifier.height(64.dp)) // Add some space from the very top
+        Spacer(modifier = Modifier.height(64.dp))
 
         Text(
             text = if (isLoginMode) "Login" else "Create Account",
@@ -60,9 +60,8 @@ fun LoginScreen(
             onValueChange = { password = it },
             label = { Text("Password") },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-            // Conditionally apply visual transformation
             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-            trailingIcon = { // Add trailing icon for password visibility toggle
+            trailingIcon = {        // add trailing icon for password visibility toggle
                 val image = if (passwordVisible)
                     Icons.Filled.Visibility
                 else Icons.Filled.VisibilityOff
@@ -77,7 +76,7 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        if (!isLoginMode) { // Only show for registration mode
+        if (!isLoginMode) {     // only show for registration mode
             OutlinedTextField(
                 value = displayName,
                 onValueChange = { displayName = it },

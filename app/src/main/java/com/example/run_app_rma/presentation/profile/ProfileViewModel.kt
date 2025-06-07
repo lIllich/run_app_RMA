@@ -1,11 +1,11 @@
 package com.example.run_app_rma.presentation.profile
 
-import android.util.Log // Import Log for debugging
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.run_app_rma.data.firestore.model.User
-import com.example.run_app_rma.data.firestore.repository.FollowRepository // Import FollowRepository
+import com.example.run_app_rma.data.firestore.repository.FollowRepository
 import com.example.run_app_rma.data.firestore.repository.RunPostRepository
 import com.example.run_app_rma.data.firestore.repository.UserRepository
 import com.example.run_app_rma.data.remote.AuthRepository
@@ -38,7 +38,6 @@ class ProfileViewModel(
     private val _followersCount = MutableStateFlow(0)
     val followersCount: StateFlow<Int> = _followersCount.asStateFlow()
 
-    // New: State for post count
     private val _postCount = MutableStateFlow(0)
     val postCount: StateFlow<Int> = _postCount.asStateFlow()
 
@@ -46,7 +45,7 @@ class ProfileViewModel(
     private val TAG = "ProfileViewModel"
 
     init {
-        fetchUserProfileAndCounts() // Call new combined fetch function
+        fetchUserProfileAndCounts()
     }
 
     /**
@@ -60,7 +59,7 @@ class ProfileViewModel(
             _currentUser.value = null
             _followingCount.value = 0
             _followersCount.value = 0
-            _postCount.value = 0 // Reset post count as well
+            _postCount.value = 0
             Log.d(TAG, "fetchUserProfileAndCounts called but currentUserId is null. User not authenticated.")
             return
         }
@@ -69,7 +68,7 @@ class ProfileViewModel(
         _errorMessage.value = null
         viewModelScope.launch {
             try {
-                // Fetch user profile
+                // fetch user profile
                 val userResult = userRepository.getUserProfile(userId)
                 if (userResult.isSuccess) {
                     _currentUser.value = userResult.getOrNull()
@@ -78,7 +77,7 @@ class ProfileViewModel(
                     _currentUser.value = null
                 }
 
-                // Fetch following count
+                // fetch following count
                 val followingCountResult = followRepository.getFollowingCount(userId)
                 if (followingCountResult.isSuccess) {
                     _followingCount.value = followingCountResult.getOrNull() ?: 0
@@ -87,7 +86,7 @@ class ProfileViewModel(
                     _followingCount.value = 0
                 }
 
-                // Fetch followers count
+                // fetch followers count
                 val followersCountResult = followRepository.getFollowersCount(userId)
                 if (followersCountResult.isSuccess) {
                     _followersCount.value = followersCountResult.getOrNull() ?: 0
@@ -96,8 +95,7 @@ class ProfileViewModel(
                     _followersCount.value = 0
                 }
 
-                // New: Fetch post count
-                // Corrected: Use getRunPostsByUsers which takes a list of user IDs
+                // fetch post count
                 val userPostsResult = runPostRepository.getRunPostsByUsers(listOf(userId))
                 if (userPostsResult.isSuccess) {
                     _postCount.value = userPostsResult.getOrNull()?.size ?: 0
@@ -128,7 +126,7 @@ class ProfileViewModel(
             return
         }
 
-        // Only allow specific user to run this for now, for safety.
+        // only allow specific user to run this for now
         if (userId != "2MKIn3Un7HevvAAROb4z3cWaxFy2") {
             _errorMessage.value = "You do not have permission to perform this action."
             Log.w(TAG, "Unauthorized user $userId attempted to recalculate distances.")
@@ -143,7 +141,7 @@ class ProfileViewModel(
             result.onSuccess {
                 Log.d(TAG, "Total distance recalculated successfully for user $userId.")
                 _errorMessage.value = "Uspješno preračunata ukupna udaljenost."
-                fetchUserProfileAndCounts() // Refresh the UI to show the new value
+                fetchUserProfileAndCounts() // refresh the UI to show the new value
             }.onFailure { e ->
                 _errorMessage.value = "Greška pri preračunavanju udaljenosti: ${e.message}"
                 Log.e(TAG, "Failed to recalculate totalDistanceRun for user $userId: ${e.message}", e)
@@ -158,17 +156,13 @@ class ProfileViewModel(
         _errorMessage.value = null
         _followingCount.value = 0
         _followersCount.value = 0
-        _postCount.value = 0 // Clear post count on logout
+        _postCount.value = 0
     }
 
     fun clearMessages() {
         _errorMessage.value = null
     }
 
-    /**
-     * Factory for creating ProfileViewModel instances.
-     * Required for injecting dependencies into the ViewModel.
-     */
     class Factory(
         private val userRepository: UserRepository,
         private val firebaseAuth: FirebaseAuth,
@@ -179,7 +173,13 @@ class ProfileViewModel(
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(ProfileViewModel::class.java)) {
                 @Suppress("UNCHECKED_CAST")
-                return ProfileViewModel(userRepository, firebaseAuth, authRepository, runPostRepository, followRepository) as T
+                return ProfileViewModel(
+                    userRepository,
+                    firebaseAuth,
+                    authRepository,
+                    runPostRepository,
+                    followRepository
+                ) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class")
         }

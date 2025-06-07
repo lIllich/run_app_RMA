@@ -97,6 +97,9 @@ dependencies {
     implementation(libs.accompanist.pager.indicators)
 
     implementation(libs.google.firebase.messaging.ktx)
+    implementation(libs.foundation)
+    implementation(libs.androidx.compose.foundation.foundation)
+
 
     implementation(libs.accompanist.swiperefresh)
 }

@@ -22,7 +22,6 @@ import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.*
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PublishRunScreen(
     modifier: Modifier = Modifier,
@@ -32,8 +31,8 @@ fun PublishRunScreen(
     val localRuns = publishRunViewModel.localRuns
     val isLoading by publishRunViewModel.isLoading
     val isRefreshing by publishRunViewModel.isRefreshing.collectAsState()
-    val errorMessage by publishRunViewModel.errorMessage
-    val successMessage by publishRunViewModel.successMessage
+//    val errorMessage by publishRunViewModel.errorMessage
+//    val successMessage by publishRunViewModel.successMessage
     val selectedRun by publishRunViewModel.selectedRun
     val caption by publishRunViewModel.caption
 
@@ -111,7 +110,8 @@ fun PublishRunScreen(
 
         selectedRun?.let { run ->
             Text("Odabrano trčanje:", style = MaterialTheme.typography.titleSmall)
-            Text("Vrijeme: ${dateFormat.format(Date(run.startTime))} - ${run.endTime?.let { dateFormat.format(Date(it)) } ?: "N/A"}")
+            Text(
+                "Vrijeme: ${dateFormat.format(Date(run.startTime))} - ${run.endTime?.let { dateFormat.format(Date(it)) } ?: "N/A"}")
             Text("Udaljenost: ${run.distance?.let { decimalFormat.format(it / 1000) } ?: "N/A"} km")
             Text("Prosječni tempo: ${run.avgPace?.let { decimalFormat.format(it) } ?: "N/A"} min/km")
 
@@ -139,7 +139,6 @@ fun PublishRunScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RunItemCard(
     run: RunEntity,

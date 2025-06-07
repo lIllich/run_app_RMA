@@ -1,12 +1,25 @@
 package com.example.run_app_rma.presentation.publish
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -19,9 +32,9 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.run_app_rma.data.db.AppDatabase
-import com.example.run_app_rma.domain.model.LocationDataEntity
 import com.example.run_app_rma.data.firestore.repository.RunPostRepository
 import com.example.run_app_rma.data.firestore.repository.UserRepository
+import com.example.run_app_rma.domain.model.LocationDataEntity
 import com.google.firebase.auth.FirebaseAuth
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
@@ -107,7 +120,6 @@ fun RunDetailsScreen(
                 Text("Prosječni tempo: ${run.avgPace?.let { decimalFormat.format(it) } ?: "N/A"} min/km")
                 Text("Prosječna brzina: ${runDetailsViewModel.getAverageSpeed(run)}")
                 Text("Razlika u elevaciji: ${runDetailsViewModel.getElevationGain(locationData)}")
-//                Text("Duljina rute: ${runDetailsViewModel.getRouteLength(locationData)}")
                 Text("Koraci: ${run.steps?.toString() ?: "N/A"}")
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -119,10 +131,10 @@ fun RunDetailsScreen(
                     Spacer(modifier = Modifier.height(16.dp))
                 }
 
-                // Button to open fullscreen map
+                // button to open fullscreen map
                 if (locationData.isNotEmpty()) {
                     Button(
-                        onClick = { onViewMapClick(runId) }, // Pass runId to the navigation lambda
+                        onClick = { onViewMapClick(runId) },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text("Prikaži kartu")
@@ -138,7 +150,7 @@ fun RunDetailsScreen(
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(max = 300.dp) // Limit height for splits list
+                            .heightIn(max = 300.dp)     // limit height for splits list
                     ) {
                         itemsIndexed(kilometerSplits) { index, split ->
                             Text("Kilometar ${index + 1}: Vrijeme: ${split.first}, Tempo: ${split.second}")
@@ -205,7 +217,6 @@ fun ElevationGraph(locationData: List<LocationDataEntity>) {
         value.toFloat()
     }
 
-    // Smooth with moving average (e.g., windowSize = 5)
     val normalizedAlts = movingAverage(rawAlts, windowSize = 5)
 
     val startTime = timestamps.firstOrNull() ?: 0L
@@ -219,16 +230,15 @@ fun ElevationGraph(locationData: List<LocationDataEntity>) {
         val width = size.width
         val height = size.height
 
-        // Lijevi rub se koristi za Y-osi (brojevi + oznaka) → gotovo uz rub
-        val yAxisOffset = 0f // minimalni razmak od lijevog ruba
-        val yAxisLabelWidth = 80f // prostor za brojeve Y-osi
-        val leftPadding = yAxisOffset + yAxisLabelWidth // ovo gura graf udesno od Y-osi
+        val yAxisOffset = 0f                            // left edge offset
+        val yAxisLabelWidth = 80f                       // Y-axis numbers space
+        val leftPadding = yAxisOffset + yAxisLabelWidth // graph padding to Y-axis
         val rightPadding = 20f
         val bottomPadding = 50f
         val topPadding = 50f
 
-        val graphPaddingX = 20f // dodatni razmak između grafa i Y-osi
-        val graphPaddingY = 20f // razmak između grafa i vrha/dna grafa
+        val graphPaddingX = 20f                         // additional graph padding to Y-axis
+        val graphPaddingY = 20f                         // graph padding to top/bottom
 
         val graphWidth = width - leftPadding - rightPadding
         val graphHeight = height - bottomPadding - topPadding
@@ -241,7 +251,7 @@ fun ElevationGraph(locationData: List<LocationDataEntity>) {
 
         val path = Path()
         path.moveTo(
-            leftPadding + graphPaddingX, // ⬅️ linija grafa počinje nakon Y-osi + unutarnji razmak
+            leftPadding + graphPaddingX,
             topPadding + graphPaddingY + (graphHeight - 2 * graphPaddingY) * (1f - (normalizedAlts.first() - minY) / yRange)
         )
 
@@ -278,7 +288,6 @@ fun ElevationGraph(locationData: List<LocationDataEntity>) {
             )
         }
 
-        // Mjerna jedinica na vrhu Y-osi (pomaknuta malo iznad prve oznake)
         drawContext.canvas.nativeCanvas.drawText(
             yUnitLabel,
             yAxisOffset,
@@ -293,11 +302,11 @@ fun ElevationGraph(locationData: List<LocationDataEntity>) {
             val index = i * step
             if (index >= timestamps.size) continue
 
-            val x = leftPadding + graphPaddingX + index * xStep // ⬅️ isto pravilo pomaka kao graf
+            val x = leftPadding + graphPaddingX + index * xStep
             val elapsedMillis = timestamps[index] - startTime
             val minutes = elapsedMillis / 60000
             val seconds = (elapsedMillis / 1000) % 60
-            val timeLabel = String.format("%d:%02d", minutes, seconds)
+            val timeLabel = String.format(Locale.getDefault(), "%d:%02d", minutes, seconds)
 
             drawContext.canvas.nativeCanvas.drawText(
                 timeLabel,

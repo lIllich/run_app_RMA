@@ -1,14 +1,14 @@
 package com.example.run_app_rma.data.firestore.repository
 
-import android.util.Log
+import android.util.Log     // for debugging
 import com.example.run_app_rma.data.firestore.model.User
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 
-class UserRepository(private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()) {
+class UserRepository(firestore: FirebaseFirestore = FirebaseFirestore.getInstance()) {
 
     private val usersCollection = firestore.collection("users")
-    private val postsCollection = firestore.collection("posts") // Need reference to posts collection
+    private val postsCollection = firestore.collection("posts")
 
     private val TAG = "UserRepository"
 
@@ -47,11 +47,11 @@ class UserRepository(private val firestore: FirebaseFirestore = FirebaseFirestor
 
     suspend fun searchUsers(query: String): Result<List<User>> {
         return try {
-            val lowerCaseQuery = query.lowercase() // Convert query to lowercase
+            val lowerCaseQuery = query.lowercase()          // convert query to lowercase
             val users = usersCollection
-                .orderBy("lowercaseDisplayName") // Order and search by the new lowercase field
-                .startAt(lowerCaseQuery) //
-                .endAt(lowerCaseQuery + '\uf8ff') //
+                .orderBy("lowercaseDisplayName")      // order and search by the new lowercase field
+                .startAt(lowerCaseQuery)
+                .endAt(lowerCaseQuery + '\uf8ff')
                 .get()
                 .await()
                 .toObjects(User::class.java)
@@ -72,7 +72,7 @@ class UserRepository(private val firestore: FirebaseFirestore = FirebaseFirestor
         return try {
             Log.d(TAG, "Starting recalculation for user: $userId")
 
-            // Fetch all run posts for this user
+            // fetch all run posts for this user
             val runPostsSnapshot = postsCollection
                 .whereEqualTo("userId", userId)
                 .get()
@@ -81,7 +81,7 @@ class UserRepository(private val firestore: FirebaseFirestore = FirebaseFirestor
             var totalDistance = 0f
             var totalRuns = 0
 
-            // Sum the distances and count the runs from posts
+            // sum the distances and count the runs from posts
             for (document in runPostsSnapshot.documents) {
                 val distance = document.get("distance", Float::class.java) ?: 0f
                 totalDistance += distance
@@ -91,7 +91,7 @@ class UserRepository(private val firestore: FirebaseFirestore = FirebaseFirestor
 
             Log.d(TAG, "Calculated totalDistance: $totalDistance km, totalRuns: $totalRuns for user $userId")
 
-            // Update the user's profile with the new totalDistanceRun
+            // update the user's profile with the new totalDistanceRun
             val updates = mapOf(
                 "totalDistanceRun" to totalDistance,
                 "totalRuns" to totalRuns
@@ -106,10 +106,6 @@ class UserRepository(private val firestore: FirebaseFirestore = FirebaseFirestor
         }
     }
 
-    /**
-     * Fetches all user IDs from the 'users' collection.
-     * Useful for iterating through all users to perform a batch operation like recalculation.
-     */
     suspend fun getAllUserIds(): Result<List<String>> {
         return try {
             val snapshot = usersCollection.get().await()

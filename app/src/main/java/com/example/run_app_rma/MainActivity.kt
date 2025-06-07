@@ -1,55 +1,66 @@
-// MainActivity.kt
 package com.example.run_app_rma
 
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.*
+import androidx.annotation.RequiresApi
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.viewmodel.compose.viewModel
-
-import androidx.navigation.NavType
 import androidx.navigation.NavController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.run_app_rma.data.db.AppDatabase
-import com.example.run_app_rma.data.remote.AuthRepository
-import com.example.run_app_rma.sensor.tracking.LocationService
-import com.example.run_app_rma.sensor.tracking.SensorService
-import com.example.run_app_rma.ui.theme.Run_app_RMATheme
-import com.example.run_app_rma.presentation.login.LoginScreen
-import com.example.run_app_rma.presentation.track.RunViewModel
-import com.example.run_app_rma.presentation.main.MainScreenWithTabs
-import com.example.run_app_rma.data.firestore.repository.UserRepository
 import com.example.run_app_rma.data.firestore.repository.FollowRepository
 import com.example.run_app_rma.data.firestore.repository.RunPostRepository
-import com.example.run_app_rma.presentation.runpost.RunPostScreen
-import com.example.run_app_rma.presentation.runpost.RunPostViewModel
-import com.example.run_app_rma.presentation.search.SearchUserViewModel
+import com.example.run_app_rma.data.firestore.repository.UserRepository
+import com.example.run_app_rma.data.remote.AuthRepository
+import com.example.run_app_rma.presentation.login.LoginScreen
+import com.example.run_app_rma.presentation.main.MainScreenWithTabs
 import com.example.run_app_rma.presentation.profile.EditProfileScreen
 import com.example.run_app_rma.presentation.profile.EditProfileViewModel
-import com.example.run_app_rma.presentation.profile.UserPostsScreen
-import com.example.run_app_rma.presentation.profile.UserPostsViewModel
-import com.example.run_app_rma.presentation.profile.UserListScreen
-import com.example.run_app_rma.presentation.profile.UserListViewModel
 import com.example.run_app_rma.presentation.profile.OtherUserProfileScreen
 import com.example.run_app_rma.presentation.profile.OtherUserProfileViewModel
+import com.example.run_app_rma.presentation.profile.UserListScreen
+import com.example.run_app_rma.presentation.profile.UserListViewModel
+import com.example.run_app_rma.presentation.profile.UserPostsScreen
+import com.example.run_app_rma.presentation.profile.UserPostsViewModel
 import com.example.run_app_rma.presentation.publish.RunDetailsScreen
-import com.example.run_app_rma.presentation.publish.RunDetailsViewModel // Import RunDetailsViewModel
+import com.example.run_app_rma.presentation.publish.RunDetailsViewModel
+import com.example.run_app_rma.presentation.runpost.RunPostScreen
+import com.example.run_app_rma.presentation.runpost.RunPostViewModel
+import com.example.run_app_rma.presentation.track.RunViewModel
+import com.example.run_app_rma.sensor.tracking.LocationService
+import com.example.run_app_rma.ui.theme.Run_app_RMATheme
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.firebase.auth.FirebaseAuth
@@ -61,7 +72,6 @@ import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.Polyline
 import com.google.maps.android.compose.rememberCameraPositionState
 import com.google.maps.android.compose.rememberMarkerState
-import android.util.Log
 
 
 class MainActivity : ComponentActivity() {
@@ -77,6 +87,7 @@ class MainActivity : ComponentActivity() {
 
     private val TAG = "MainActivity"
 
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -87,7 +98,7 @@ class MainActivity : ComponentActivity() {
         val writeExternalStorageGranted = permissions[android.Manifest.permission.WRITE_EXTERNAL_STORAGE] ?: false
         val readMediaImagesGranted = permissions[android.Manifest.permission.READ_MEDIA_IMAGES] ?: false
         val activityRecognitionGranted = permissions[android.Manifest.permission.ACTIVITY_RECOGNITION] ?: false
-        val foregroundServiceGranted = permissions[android.Manifest.permission.FOREGROUND_SERVICE] ?: false
+        permissions[android.Manifest.permission.FOREGROUND_SERVICE] ?: false
 
         if (fineLocationGranted && coarseLocationGranted) {
             Toast.makeText(this, "Location permissions granted.", Toast.LENGTH_SHORT).show()
@@ -120,6 +131,7 @@ class MainActivity : ComponentActivity() {
     }
 
 
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -146,11 +158,9 @@ class MainActivity : ComponentActivity() {
             )
         )
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            requestNotificationPermissionLauncher.launch(
-                android.Manifest.permission.POST_NOTIFICATIONS
-            )
-        }
+        requestNotificationPermissionLauncher.launch(
+            android.Manifest.permission.POST_NOTIFICATIONS
+        )
 
         setContent {
             Run_app_RMATheme {
@@ -158,18 +168,15 @@ class MainActivity : ComponentActivity() {
 
                 val isLoggedIn by remember { mutableStateOf(authRepository.isLoggedIn()) }
 
-                // Observe the current intent for notification handling
+                // observe the current intent for notification handling
                 val currentIntent = rememberUpdatedState(intent)
 
                 // LaunchedEffect to handle initial intent when component is created
-                // and subsequent new intents when activity is already running (e.g., singleTop launch mode)
+                // and subsequent new intents when activity is already running
                 LaunchedEffect(currentIntent.value) {
                     currentIntent.value?.let { incomingIntent ->
                         handleNotificationIntent(navController, incomingIntent)
-                        // Clear the intent's data after handling to prevent re-processing.
-                        // This is important for singleTop activities.
-                        // Note: Only clear if you're sure you won't need to re-read the same intent later.
-                        // For a notification-driven navigation, this is generally safe.
+                        // lear the intent's data after handling to prevent re-processing
                         incomingIntent.replaceExtras(Bundle())
                         incomingIntent.data = null
                     }
@@ -342,11 +349,11 @@ class MainActivity : ComponentActivity() {
                                     onUserClick = { clickedUserId ->
                                         navController.navigate("other_user_profile_screen/$clickedUserId")
                                     },
-                                    onViewLikedUsers = { postId, listType ->
-                                        navController.navigate("user_list_screen/$listType/$postId")
+                                    onViewLikedUsers = { likedPostId, listType ->
+                                        navController.navigate("user_list_screen/$listType/$likedPostId")
                                     },
-                                    onViewComments = { postId ->
-                                        Toast.makeText(this@MainActivity, "Comments for post $postId", Toast.LENGTH_SHORT).show()
+                                    onViewComments = { commentedPostId ->
+                                        Toast.makeText(this@MainActivity, "Comments for post $commentedPostId", Toast.LENGTH_SHORT).show()
                                     },
                                     onPostDeleted = {
                                         navController.popBackStack()
@@ -384,11 +391,11 @@ class MainActivity : ComponentActivity() {
                             if (runId != null) {
                                 FullscreenMapScreen(
                                     runId = runId,
-                                    appDatabase = appDatabase, // Pass the database instance
+                                    appDatabase = appDatabase,
                                     runPostRepository = runPostRepository,
                                     userRepository = userRepository,
                                     firebaseAuth = firebaseAuth,
-                                    onBackClick = { navController.popBackStack() } // Navigate back
+                                    onBackClick = { navController.popBackStack() }
                                 )
                             } else {
                                 Toast.makeText(this@MainActivity, "Run ID for map missing.", Toast.LENGTH_SHORT).show()
@@ -419,8 +426,7 @@ class MainActivity : ComponentActivity() {
                             val route = "run_post_screen/$postId"
                             Log.d(TAG, "Navigating to $route for $notificationType notification.")
                             navController.navigate(route) {
-                                // Keep the current screen if it's the target, otherwise navigate.
-                                // This works well with singleTop launchMode.
+                                // keep the current screen if it's the target, otherwise navigate
                                 launchSingleTop = true
                             }
                             Log.d(TAG, "Navigation dispatched to $route. Current destination: ${navController.currentDestination?.route}")
@@ -434,7 +440,7 @@ class MainActivity : ComponentActivity() {
                             val route = "other_user_profile_screen/$userId"
                             Log.d(TAG, "Navigating to $route for new_follower notification.")
                             navController.navigate(route) {
-                                // Keep the current screen if it's the target, otherwise navigate.
+                                // keep the current screen if it's the target, otherwise navigate
                                 launchSingleTop = true
                             }
                             Log.d(TAG, "Navigation dispatched to $route. Current destination: ${navController.currentDestination?.route}")
@@ -455,8 +461,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        // Set the new intent for the current activity instance.
-        // This is crucial for LaunchedEffect(currentIntent.value) to react to new intents.
+        // set the new intent for the current activity instance
+        // for LaunchedEffect(currentIntent.value) to react to new intents
         setIntent(intent)
     }
 
@@ -479,11 +485,10 @@ fun FullscreenMapScreen(
     firebaseAuth: FirebaseAuth,
     onBackClick: () -> Unit
 ) {
-    // Re-use the RunDetailsViewModel to fetch location data for the given runId
     val runDetailsViewModel: RunDetailsViewModel = viewModel(
         factory = RunDetailsViewModel.Factory(
             runId = runId,
-            runDao = appDatabase.runDao(), // Pass the necessary DAOs from appDatabase
+            runDao = appDatabase.runDao(),
             locationDao = appDatabase.locationDao(),
             runPostRepository = runPostRepository,
             userRepository = userRepository,
@@ -518,16 +523,15 @@ fun FullscreenMapScreen(
 
         val pathPoints = locationData.map { LatLng(it.lat, it.lon) }
         val cameraPositionState = rememberCameraPositionState {
-            // Center the map on the first point, or a more appropriate initial zoom level
             position = CameraPosition.fromLatLngZoom(pathPoints.first(), 15f)
         }
 
         GoogleMap(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues), // Apply padding from Scaffold
+                .padding(paddingValues),
             cameraPositionState = cameraPositionState,
-            // Ensure map gestures are enabled
+            // make sure map gestures are enabled
             uiSettings = MapUiSettings(zoomControlsEnabled = true, scrollGesturesEnabled = true, zoomGesturesEnabled = true)
         ) {
             Polyline(

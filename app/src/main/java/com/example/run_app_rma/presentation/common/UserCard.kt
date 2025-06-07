@@ -9,18 +9,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults // Import ButtonDefaults for custom colors
-import androidx.compose.material3.CircularProgressIndicator // Import CircularProgressIndicator
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
@@ -48,20 +45,20 @@ fun UserCard(
     showFollowButton: Boolean = false,
     isFollowing: Boolean = false,
     onToggleFollow: ((String, Boolean) -> Unit)? = null,
-    isTogglingFollow: Boolean = false // New parameter for individual toggle loading
+    isTogglingFollow: Boolean = false
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(enabled = onClick != null && !isTogglingFollow) { onClick?.invoke(user.id) } // Disable click when toggling
+            .clickable(enabled = onClick != null && !isTogglingFollow) { onClick?.invoke(user.id) } // disable click when toggling
             .padding(vertical = 8.dp, horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Image(
-            painter = if (user.profileImageUrl != null && user.profileImageUrl.isNotEmpty()) {
+            painter = if (!user.profileImageUrl.isNullOrEmpty()) {
                 rememberAsyncImagePainter(user.profileImageUrl)
             } else {
-                painterResource(R.drawable.ic_profile_placeholder) // Default placeholder
+                painterResource(R.drawable.ic_profile_placeholder)
             },
             contentDescription = "Profile Picture",
             modifier = Modifier
@@ -74,27 +71,34 @@ fun UserCard(
             text = user.displayName,
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.weight(1f) // Allow text to take available space
+            modifier = Modifier.weight(1f)
         )
 
-        // Show small CircularProgressIndicator when toggling follow
+        // show small CircularProgressIndicator when toggling follow
         if (isTogglingFollow) {
             CircularProgressIndicator(
-                modifier = Modifier.size(24.dp), // Small size for the indicator
+                modifier = Modifier.size(24.dp),
                 strokeWidth = 2.dp
             )
-            Spacer(modifier = Modifier.width(8.dp)) // Space between indicator and button/end
+            Spacer(modifier = Modifier.width(8.dp))
         }
 
-        // Conditional Follow Button
-        if (showFollowButton && !isTogglingFollow) { // Hide button when loading
+        // conditional follow button
+        if (showFollowButton && !isTogglingFollow) {    // hide button when loading
             Spacer(modifier = Modifier.width(8.dp))
             Button(
                 onClick = { onToggleFollow?.invoke(user.id, isFollowing) },
-                enabled = onToggleFollow != null && !isTogglingFollow, // Button is enabled only if a toggle action is provided and not loading
+                // Button is enabled only if a toggle action is provided and not loading
+                enabled = onToggleFollow != null && !isTogglingFollow,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = if (isFollowing) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.primary,
-                    contentColor = if (isFollowing) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onPrimary
+
+                    containerColor = if (isFollowing)
+                        MaterialTheme.colorScheme.secondaryContainer
+                    else MaterialTheme.colorScheme.primary,
+
+                    contentColor = if (isFollowing)
+                        MaterialTheme.colorScheme.onSecondaryContainer
+                    else MaterialTheme.colorScheme.onPrimary
                 )
             ) {
                 Text(if (isFollowing) "Pratim" else "Prati")
