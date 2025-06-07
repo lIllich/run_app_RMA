@@ -49,7 +49,7 @@ import com.example.run_app_rma.presentation.profile.UserListViewModel
 import com.example.run_app_rma.presentation.profile.OtherUserProfileScreen
 import com.example.run_app_rma.presentation.profile.OtherUserProfileViewModel
 import com.example.run_app_rma.presentation.publish.RunDetailsScreen
-import com.example.run_app_rma.presentation.publish.RunDetailsViewModel // Import RunDetailsViewModel
+import com.example.run_app_rma.presentation.publish.RunDetailsViewModel
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.firebase.auth.FirebaseAuth
@@ -75,6 +75,9 @@ class MainActivity : ComponentActivity() {
     private lateinit var firebaseAuth: FirebaseAuth
     private lateinit var firebaseStorage: FirebaseStorage
 
+    private var shortcutAction by mutableStateOf<String?>(null)
+    private var notificationIntent by mutableStateOf<Intent?>(null)
+
     private val TAG = "MainActivity"
 
     private val requestPermissionLauncher = registerForActivityResult(
@@ -83,11 +86,8 @@ class MainActivity : ComponentActivity() {
         val fineLocationGranted = permissions[android.Manifest.permission.ACCESS_FINE_LOCATION] ?: false
         val coarseLocationGranted = permissions[android.Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
         val cameraGranted = permissions[android.Manifest.permission.CAMERA] ?: false
-        val readExternalStorageGranted = permissions[android.Manifest.permission.READ_EXTERNAL_STORAGE] ?: false
-        val writeExternalStorageGranted = permissions[android.Manifest.permission.WRITE_EXTERNAL_STORAGE] ?: false
         val readMediaImagesGranted = permissions[android.Manifest.permission.READ_MEDIA_IMAGES] ?: false
         val activityRecognitionGranted = permissions[android.Manifest.permission.ACTIVITY_RECOGNITION] ?: false
-        val foregroundServiceGranted = permissions[android.Manifest.permission.FOREGROUND_SERVICE] ?: false
 
         if (fineLocationGranted && coarseLocationGranted) {
             Toast.makeText(this, "Location permissions granted.", Toast.LENGTH_SHORT).show()
@@ -97,7 +97,7 @@ class MainActivity : ComponentActivity() {
         if (cameraGranted) {
             Toast.makeText(this, "Camera permission granted.", Toast.LENGTH_SHORT).show()
         }
-        if (readExternalStorageGranted || writeExternalStorageGranted || readMediaImagesGranted) {
+        if (readMediaImagesGranted) {
             Toast.makeText(this, "Storage permission granted.", Toast.LENGTH_SHORT).show()
         }
 
@@ -138,11 +138,8 @@ class MainActivity : ComponentActivity() {
                 android.Manifest.permission.ACCESS_FINE_LOCATION,
                 android.Manifest.permission.ACCESS_COARSE_LOCATION,
                 android.Manifest.permission.CAMERA,
-                android.Manifest.permission.READ_EXTERNAL_STORAGE,
-                android.Manifest.permission.WRITE_EXTERNAL_STORAGE,
                 android.Manifest.permission.READ_MEDIA_IMAGES,
                 android.Manifest.permission.ACTIVITY_RECOGNITION,
-                android.Manifest.permission.FOREGROUND_SERVICE
             )
         )
 
@@ -152,26 +149,17 @@ class MainActivity : ComponentActivity() {
             )
         }
 
+        handleIntent(intent)
+
         setContent {
             Run_app_RMATheme {
                 val navController = rememberNavController()
-
                 val isLoggedIn by remember { mutableStateOf(authRepository.isLoggedIn()) }
 
-                // Observe the current intent for notification handling
-                val currentIntent = rememberUpdatedState(intent)
-
-                // LaunchedEffect to handle initial intent when component is created
-                // and subsequent new intents when activity is already running (e.g., singleTop launch mode)
-                LaunchedEffect(currentIntent.value) {
-                    currentIntent.value?.let { incomingIntent ->
-                        handleNotificationIntent(navController, incomingIntent)
-                        // Clear the intent's data after handling to prevent re-processing.
-                        // This is important for singleTop activities.
-                        // Note: Only clear if you're sure you won't need to re-read the same intent later.
-                        // For a notification-driven navigation, this is generally safe.
-                        incomingIntent.replaceExtras(Bundle())
-                        incomingIntent.data = null
+                LaunchedEffect(notificationIntent) {
+                    notificationIntent?.let {
+                        handleNotificationIntent(navController, it)
+                        notificationIntent = null // Consume the intent
                     }
                 }
 
@@ -199,7 +187,24 @@ class MainActivity : ComponentActivity() {
                                 )
                             )
 
+                            LaunchedEffect(shortcutAction) {
+                                shortcutAction?.let { action ->
+                                    when (action) {
+                                        "ACTION_START_RUN" -> {
+                                            runViewModel.startRun()
+                                            Toast.makeText(this@MainActivity, "Started run from shortcut", Toast.LENGTH_SHORT).show()
+                                        }
+                                        "ACTION_STOP_RUN" -> {
+                                            runViewModel.stopRun()
+                                            Toast.makeText(this@MainActivity, "Stopped run from shortcut", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                    shortcutAction = null // Consume the action
+                                }
+                            }
+
                             MainScreenWithTabs(
+                                application = application,
                                 runViewModel = runViewModel,
                                 userRepository = userRepository,
                                 firebaseAuth = firebaseAuth,
@@ -238,16 +243,8 @@ class MainActivity : ComponentActivity() {
                         composable("edit_profile/{userId}") { backStackEntry ->
                             val userId = backStackEntry.arguments?.getString("userId")
                             if (userId != null) {
-                                val editProfileViewModel: EditProfileViewModel = viewModel(
-                                    factory = EditProfileViewModel.Factory(
-                                        userRepository = userRepository,
-                                        firebaseAuth = firebaseAuth,
-                                        firebaseStorage = firebaseStorage
-                                    )
-                                )
                                 EditProfileScreen(
                                     userId = userId,
-                                    editProfileViewModel = editProfileViewModel,
                                     onProfileUpdated = {
                                         navController.popBackStack()
                                     },
@@ -258,104 +255,67 @@ class MainActivity : ComponentActivity() {
                                 navController.popBackStack()
                             }
                         }
-                        composable("user_posts_screen/{userId}") { backStackEntry ->
-                            val userId = backStackEntry.arguments?.getString("userId")
-                            if (userId != null) {
-                                UserPostsScreen(
-                                    userPostsViewModel = viewModel(
-                                        factory = UserPostsViewModel.Factory
-                                    ),
-                                    onBack = { navController.popBackStack() },
-                                    onUserClick = { clickedUserId ->
-                                        navController.navigate("other_user_profile_screen/$clickedUserId")
-                                    },
-                                    onPostClick = { postId ->
-                                        navController.navigate("run_post_screen/$postId")
-                                    }
-                                )
-                            } else {
-                                Toast.makeText(this@MainActivity, "User ID missing for posts.", Toast.LENGTH_SHORT).show()
-                                navController.popBackStack()
-                            }
+                        composable("user_posts_screen/{userId}") {
+                            UserPostsScreen(
+                                onBack = { navController.popBackStack() },
+                                onUserClick = { clickedUserId ->
+                                    navController.navigate("other_user_profile_screen/$clickedUserId")
+                                },
+                                onPostClick = { postId ->
+                                    navController.navigate("run_post_screen/$postId")
+                                }
+                            )
                         }
-                        composable("user_list_screen/{listType}/{userId}") { backStackEntry ->
-                            val userId = backStackEntry.arguments?.getString("userId")
-                            val listType = backStackEntry.arguments?.getString("listType")
-                            if (userId != null && listType != null) {
-                                UserListScreen(
-                                    userListViewModel = viewModel(
-                                        factory = UserListViewModel.Factory
-                                    ),
-                                    onBack = { navController.popBackStack() },
-                                    onUserClick = { clickedUserId ->
-                                        navController.navigate("other_user_profile_screen/$clickedUserId")
-                                    }
-                                )
-                            } else {
-                                Toast.makeText(this@MainActivity, "User ID or list type missing.", Toast.LENGTH_SHORT).show()
-                                navController.popBackStack()
-                            }
+                        composable("user_list_screen/{listType}/{userId}") {
+                            UserListScreen(
+                                onBack = { navController.popBackStack() },
+                                onUserClick = { clickedUserId ->
+                                    navController.navigate("other_user_profile_screen/$clickedUserId")
+                                }
+                            )
                         }
-                        composable("other_user_profile_screen/{userId}") { backStackEntry ->
-                            val userId = backStackEntry.arguments?.getString("userId")
-                            if (userId != null) {
-                                OtherUserProfileScreen(
-                                    otherUserProfileViewModel = viewModel(
-                                        factory = OtherUserProfileViewModel.Factory
-                                    ),
-                                    onBack = { navController.popBackStack() },
-                                    onEditProfile = { currentUserId ->
-                                        navController.navigate("edit_profile/$currentUserId")
-                                    },
-                                    onLogout = {
-                                        authRepository.logout()
-                                        navController.navigate("login") {
-                                            popUpTo("main_screen") { inclusive = true }
-                                        }
-                                    },
-                                    onViewUserPosts = { viewedUserId ->
-                                        navController.navigate("user_posts_screen/$viewedUserId")
-                                    },
-                                    onViewFollowing = { viewedUserId ->
-                                        navController.navigate("user_list_screen/following/$viewedUserId")
-                                    },
-                                    onViewFollowers = { viewedUserId ->
-                                        navController.navigate("user_list_screen/followers/$viewedUserId")
-                                    },
-                                    onUserClick = { clickedUserId ->
-                                        navController.navigate("other_user_profile_screen/$clickedUserId")
+                        composable("other_user_profile_screen/{userId}") {
+                            OtherUserProfileScreen(
+                                onBack = { navController.popBackStack() },
+                                onEditProfile = { currentUserId ->
+                                    navController.navigate("edit_profile/$currentUserId")
+                                },
+                                onLogout = {
+                                    authRepository.logout()
+                                    navController.navigate("login") {
+                                        popUpTo("main_screen") { inclusive = true }
                                     }
-                                )
-                            } else {
-                                Toast.makeText(this@MainActivity, "User ID missing for other user profile.", Toast.LENGTH_SHORT).show()
-                                navController.popBackStack()
-                            }
+                                },
+                                onViewUserPosts = { viewedUserId ->
+                                    navController.navigate("user_posts_screen/$viewedUserId")
+                                },
+                                onViewFollowing = { viewedUserId ->
+                                    navController.navigate("user_list_screen/following/$viewedUserId")
+                                },
+                                onViewFollowers = { viewedUserId ->
+                                    navController.navigate("user_list_screen/followers/$viewedUserId")
+                                },
+                                onUserClick = { clickedUserId ->
+                                    navController.navigate("other_user_profile_screen/$clickedUserId")
+                                }
+                            )
                         }
-                        composable("run_post_screen/{postId}") { backStackEntry ->
-                            val postId = backStackEntry.arguments?.getString("postId")
-                            if (postId != null) {
-                                RunPostScreen(
-                                    runPostViewModel = viewModel(
-                                        factory = RunPostViewModel.Factory
-                                    ),
-                                    onBack = { navController.popBackStack() },
-                                    onUserClick = { clickedUserId ->
-                                        navController.navigate("other_user_profile_screen/$clickedUserId")
-                                    },
-                                    onViewLikedUsers = { postId, listType ->
-                                        navController.navigate("user_list_screen/$listType/$postId")
-                                    },
-                                    onViewComments = { postId ->
-                                        Toast.makeText(this@MainActivity, "Comments for post $postId", Toast.LENGTH_SHORT).show()
-                                    },
-                                    onPostDeleted = {
-                                        navController.popBackStack()
-                                    }
-                                )
-                            } else {
-                                Toast.makeText(this@MainActivity, "Post ID missing.", Toast.LENGTH_SHORT).show()
-                                navController.popBackStack()
-                            }
+                        composable("run_post_screen/{postId}") {
+                            RunPostScreen(
+                                onBack = { navController.popBackStack() },
+                                onUserClick = { clickedUserId ->
+                                    navController.navigate("other_user_profile_screen/$clickedUserId")
+                                },
+                                onViewLikedUsers = { _, listType ->
+                                    navController.navigate("user_list_screen/$listType")
+                                },
+                                onViewComments = { postId ->
+                                    Toast.makeText(this@MainActivity, "Comments for post $postId", Toast.LENGTH_SHORT).show()
+                                },
+                                onPostDeleted = {
+                                    navController.popBackStack()
+                                }
+                            )
                         }
                         composable("run_details_screen/{runId}") { backStackEntry ->
                             val runId = backStackEntry.arguments?.getString("runId")?.toLongOrNull()
@@ -384,11 +344,8 @@ class MainActivity : ComponentActivity() {
                             if (runId != null) {
                                 FullscreenMapScreen(
                                     runId = runId,
-                                    appDatabase = appDatabase, // Pass the database instance
-                                    runPostRepository = runPostRepository,
-                                    userRepository = userRepository,
-                                    firebaseAuth = firebaseAuth,
-                                    onBackClick = { navController.popBackStack() } // Navigate back
+                                    appDatabase = appDatabase,
+                                    onBackClick = { navController.popBackStack() }
                                 )
                             } else {
                                 Toast.makeText(this@MainActivity, "Run ID for map missing.", Toast.LENGTH_SHORT).show()
@@ -396,6 +353,25 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     }
+                }
+            }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(intent: Intent?) {
+        intent ?: return
+        when (intent.action) {
+            "ACTION_START_RUN", "ACTION_STOP_RUN" -> {
+                shortcutAction = intent.action
+            }
+            else -> {
+                if (intent.hasExtra("type")) {
+                    notificationIntent = intent
                 }
             }
         }
@@ -419,8 +395,6 @@ class MainActivity : ComponentActivity() {
                             val route = "run_post_screen/$postId"
                             Log.d(TAG, "Navigating to $route for $notificationType notification.")
                             navController.navigate(route) {
-                                // Keep the current screen if it's the target, otherwise navigate.
-                                // This works well with singleTop launchMode.
                                 launchSingleTop = true
                             }
                             Log.d(TAG, "Navigation dispatched to $route. Current destination: ${navController.currentDestination?.route}")
@@ -434,7 +408,6 @@ class MainActivity : ComponentActivity() {
                             val route = "other_user_profile_screen/$userId"
                             Log.d(TAG, "Navigating to $route for new_follower notification.")
                             navController.navigate(route) {
-                                // Keep the current screen if it's the target, otherwise navigate.
                                 launchSingleTop = true
                             }
                             Log.d(TAG, "Navigation dispatched to $route. Current destination: ${navController.currentDestination?.route}")
@@ -453,13 +426,6 @@ class MainActivity : ComponentActivity() {
         } ?: Log.d(TAG, "handleNotificationIntent: Received null intent.")
     }
 
-    override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
-        // Set the new intent for the current activity instance.
-        // This is crucial for LaunchedEffect(currentIntent.value) to react to new intents.
-        setIntent(intent)
-    }
-
     @Preview(showBackground = true)
     @Composable
     fun GreetingPreview() {
@@ -474,20 +440,16 @@ class MainActivity : ComponentActivity() {
 fun FullscreenMapScreen(
     runId: Long,
     appDatabase: AppDatabase,
-    runPostRepository: RunPostRepository,
-    userRepository: UserRepository,
-    firebaseAuth: FirebaseAuth,
     onBackClick: () -> Unit
 ) {
-    // Re-use the RunDetailsViewModel to fetch location data for the given runId
     val runDetailsViewModel: RunDetailsViewModel = viewModel(
         factory = RunDetailsViewModel.Factory(
             runId = runId,
-            runDao = appDatabase.runDao(), // Pass the necessary DAOs from appDatabase
+            runDao = appDatabase.runDao(),
             locationDao = appDatabase.locationDao(),
-            runPostRepository = runPostRepository,
-            userRepository = userRepository,
-            firebaseAuth = firebaseAuth
+            runPostRepository = RunPostRepository(FirebaseFirestore.getInstance()),
+            userRepository = UserRepository(FirebaseFirestore.getInstance()),
+            firebaseAuth = FirebaseAuth.getInstance()
         )
     )
     val locationData by runDetailsViewModel.locationData.collectAsState()
@@ -498,7 +460,7 @@ fun FullscreenMapScreen(
                 title = { Text("Karta Trčanja") },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Natrag")
+                        Icon(androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Natrag")
                     }
                 }
             )
@@ -518,16 +480,14 @@ fun FullscreenMapScreen(
 
         val pathPoints = locationData.map { LatLng(it.lat, it.lon) }
         val cameraPositionState = rememberCameraPositionState {
-            // Center the map on the first point, or a more appropriate initial zoom level
             position = CameraPosition.fromLatLngZoom(pathPoints.first(), 15f)
         }
 
         GoogleMap(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues), // Apply padding from Scaffold
+                .padding(paddingValues),
             cameraPositionState = cameraPositionState,
-            // Ensure map gestures are enabled
             uiSettings = MapUiSettings(zoomControlsEnabled = true, scrollGesturesEnabled = true, zoomGesturesEnabled = true)
         ) {
             Polyline(

@@ -1,5 +1,6 @@
 package com.example.run_app_rma.presentation.feed
 
+import android.app.Application
 import android.util.Log
 
 import androidx.compose.runtime.State
@@ -13,6 +14,7 @@ import com.example.run_app_rma.data.firestore.model.User
 import com.example.run_app_rma.data.firestore.repository.FollowRepository
 import com.example.run_app_rma.data.firestore.repository.RunPostRepository
 import com.example.run_app_rma.data.firestore.repository.UserRepository
+import com.example.run_app_rma.widget.FeedWidgetProvider
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,6 +22,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class FeedViewModel(
+    private val application: Application,
     private val runPostRepository: RunPostRepository,
     private val userRepository: UserRepository,
     private val firebaseAuth: FirebaseAuth,
@@ -117,6 +120,8 @@ class FeedViewModel(
 
                         Log.d(TAG, "All posts count: ${_allPosts.size}")
 
+                        FeedWidgetProvider.sendUpdateBroadcast(application)
+
                         val postsToFetchUserProfilesFor = _allPosts.map { it.userId }.distinct()
                         fetchUserProfilesForPosts(postsToFetchUserProfilesFor)
 
@@ -201,6 +206,7 @@ class FeedViewModel(
     }
 
     class Factory(
+        private val application: Application,
         private val runPostRepository: RunPostRepository,
         private val userRepository: UserRepository,
         private val firebaseAuth: FirebaseAuth,
@@ -209,7 +215,7 @@ class FeedViewModel(
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(FeedViewModel::class.java)) {
                 @Suppress("UNCHECKED_CAST")
-                return FeedViewModel(runPostRepository, userRepository, firebaseAuth, followRepository) as T
+                return FeedViewModel(application, runPostRepository, userRepository, firebaseAuth, followRepository) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class")
         }
