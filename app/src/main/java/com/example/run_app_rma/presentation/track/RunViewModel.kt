@@ -42,7 +42,7 @@ class RunViewModel(
     private var currentRunLocations = mutableListOf<Location>()
 
     val liveLocationData = mutableStateOf("Lat: N/A, Lng: N/A")
-    val liveStepsData = mutableStateOf("Steps: N/A")
+    val liveSensorData = mutableStateOf("Steps: N/A")
 
     init {
         locationService.startLocationUpdates { location ->
@@ -112,7 +112,7 @@ class RunViewModel(
             Log.d("RunViewModel", "SensorService stopped.")
 
             val totalStepsForRun = sensorDao.getStepCountForRun(runId) ?: 0
-            liveStepsData.value = "Steps: $totalStepsForRun"
+            liveSensorData.value = "Steps: $totalStepsForRun"
 
             var totalDistance = 0f
             if (currentRunLocations.size >= 2) {

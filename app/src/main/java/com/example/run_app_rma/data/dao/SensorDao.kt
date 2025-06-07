@@ -10,6 +10,6 @@ interface SensorDao {
     @Insert suspend fun insertSensorData(data: SensorDataEntity)
 
     // returns max step count recorded for that run
-    @Query("SELECT MAX(steps) FROM sensor_data WHERE runId = :runId")
+    @Query("SELECT MAX(stepCount) FROM sensor_data WHERE runId = :runId")
     suspend fun getStepCountForRun(runId: Long): Int?
 }

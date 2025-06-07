@@ -105,7 +105,7 @@ class SensorService : Service(), SensorEventListener {
                     runId = runId,
                     timestamp = System.currentTimeMillis(),
                     sensorType = SensorType.PEDOMETER,
-                    steps = currentSteps
+                    stepCount = currentSteps.toFloat()
                 )
                 serviceScope.launch {
                     sensorDao.insertSensorData(sensorData)
