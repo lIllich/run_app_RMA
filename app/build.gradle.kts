@@ -100,6 +100,5 @@ dependencies {
     implementation(libs.foundation)
     implementation(libs.androidx.compose.foundation.foundation)
 
-
     implementation(libs.accompanist.swiperefresh)
 }

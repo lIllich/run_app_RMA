@@ -1,10 +1,10 @@
 package com.example.run_app_rma.presentation.runpost
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -19,7 +20,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.DirectionsRun
@@ -30,6 +34,9 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.pullrefresh.PullRefreshIndicator
+import androidx.compose.material.pullrefresh.pullRefresh
+import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -69,15 +76,13 @@ import com.example.run_app_rma.R
 import com.example.run_app_rma.data.firestore.model.Comment
 import com.example.run_app_rma.data.firestore.model.User
 import com.example.run_app_rma.presentation.common.UserCard
-import com.google.accompanist.swiperefresh.SwipeRefresh
-import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
 import kotlinx.coroutines.launch
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
 @Composable
 fun RunPostScreen(
     modifier: Modifier = Modifier,
@@ -109,8 +114,11 @@ fun RunPostScreen(
     val pagerState = rememberPagerState(initialPage = 0, pageCount = { 2 })
     val scope = rememberCoroutineScope()
 
-    val swipeRefreshState = rememberSwipeRefreshState(isRefreshing = isRefreshing)
-
+//    val swipeRefreshState = rememberSwipeRefreshState(isRefreshing = isRefreshing)
+    val swipeRefreshState = rememberPullRefreshState(
+        refreshing = isRefreshing,
+        onRefresh = { runPost?.id?.let { runPostViewModel.fetchRunPostAndRelatedData(it) } }
+    )
 
     Scaffold(
         topBar = {
@@ -165,17 +173,26 @@ fun RunPostScreen(
             )
         }
     ) { paddingValues ->
-        SwipeRefresh(
-            state = swipeRefreshState,
-            onRefresh = { runPost?.id?.let { runPostViewModel.fetchRunPostAndRelatedData(it) } },
+//        SwipeRefresh(
+//            state = swipeRefreshState,
+//            onRefresh = { runPost?.id?.let { runPostViewModel.fetchRunPostAndRelatedData(it) } },
+//            modifier = modifier
+//                .fillMaxSize()
+//                .padding(paddingValues)
+        Box(
             modifier = modifier
                 .fillMaxSize()
                 .padding(paddingValues)
+                .pullRefresh(swipeRefreshState)
         ) {
+            val scrollState = rememberScrollState()
+
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 16.dp),
+                    .verticalScroll(scrollState)
+//                    .padding(horizontal = 16.dp),
+                    .padding(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Top
             ) {
@@ -341,6 +358,7 @@ fun RunPostScreen(
                         state = pagerState,
                         modifier = Modifier
                             .fillMaxWidth()
+                            .heightIn(min = 200.dp)
                             .weight(1f)
                     ) { page ->
                         when (page) {
@@ -348,7 +366,9 @@ fun RunPostScreen(
                                 Column(
                                     modifier = Modifier
                                         .fillMaxSize()
-                                        .padding(horizontal = 16.dp, vertical = 8.dp)
+//                                        .verticalScroll(rememberScrollState())
+//                                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                                        .padding(16.dp)
                                 ) {
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
@@ -432,6 +452,12 @@ fun RunPostScreen(
                     Text("Objava nije pronađena.")
                 }
             }
+
+            PullRefreshIndicator(
+                refreshing = isRefreshing,
+                state = swipeRefreshState,
+                modifier = Modifier.align(Alignment.TopCenter)
+            )
         }
     }
 }
