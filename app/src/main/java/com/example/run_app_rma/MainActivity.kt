@@ -1,5 +1,6 @@
 package com.example.run_app_rma
-
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
