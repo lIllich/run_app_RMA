@@ -5,15 +5,15 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager // Import for PackageManager
+import android.content.pm.PackageManager
 import android.media.RingtoneManager
 import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import androidx.core.content.ContextCompat // Import for ContextCompat
-import com.example.run_app_rma.MainActivity // Import your MainActivity
-import com.example.run_app_rma.R // Import your R file for resources (e.g., app icon)
+import androidx.core.content.ContextCompat
+import com.example.run_app_rma.MainActivity
+import com.example.run_app_rma.R    // R file for resources (app icon)
 import com.example.run_app_rma.data.firestore.repository.UserRepository
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -22,16 +22,15 @@ import com.google.firebase.messaging.RemoteMessage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-import kotlin.random.Random // Import Random for unique notification IDs
+import kotlin.random.Random         // for unique notification IDs
 
 class MyFirebaseMessagingService : FirebaseMessagingService() {
 
     private val TAG = "MyFirebaseMsgService"
     private val userRepository = UserRepository(FirebaseFirestore.getInstance())
     private val firebaseAuth = FirebaseAuth.getInstance()
-    private val serviceScope = CoroutineScope(SupervisorJob()) // Use SupervisorJob for the scope
+    private val serviceScope = CoroutineScope(SupervisorJob())
 
-    // Notification Channel ID (unique for your app)
     private val CHANNEL_ID = "run_app_notifications"
     private val CHANNEL_NAME = "Run App Notifications"
     private val CHANNEL_DESCRIPTION = "Notifications for Run App activities"
@@ -46,9 +45,6 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
      */
     override fun onNewToken(token: String) {
         Log.d(TAG, "Refreshed token: $token")
-
-        // Send the token to your app server (Firestore in this case)
-        // You should associate this token with the currently logged-in user.
         sendRegistrationTokenToFirestore(token)
     }
 
@@ -60,40 +56,38 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
         Log.d(TAG, "From: ${remoteMessage.from}")
 
-        // Check if message contains a data payload.
+        // Check if message contains a data payload
         if (remoteMessage.data.isNotEmpty()) {
             Log.d(TAG, "Message data payload: ${remoteMessage.data}")
-            // Handle data messages. These messages are typically processed here.
-            // Example: update UI, perform background tasks.
-            // You'll parse the data to determine notification type and display accordingly.
+            // handle data messages
+            // example: update UI, perform background tasks
+            // parse the data to determine notification type
 
             val notificationType = remoteMessage.data["type"]
             val postId = remoteMessage.data["postId"]
             val userId = remoteMessage.data["userId"]
-            val followerId = remoteMessage.data["followerId"] // For new_follower type
+            val followerId = remoteMessage.data["followerId"]
 
-            // Determine title and body from the data payload
+            // determine title and body from the data payload
             val title = remoteMessage.notification?.title ?: "Run App Notification"
             val body = remoteMessage.notification?.body ?: "You have a new activity."
 
-            // Manually display notification if the app is in the foreground
-            // If the app is in the background/killed, FCM typically handles this.
-            if (isAppInForeground()) { // You might need a more robust check for foreground state
-                // Build and display the notification
-                sendNotification(title, body, notificationType, postId, userId, followerId)
+            // manually display notification if the app is in the foreground
+            // if the app is in the background/killed, FCM handles this
+            if (isAppInForeground()) {
+                // build and display the notification
+                sendNotification(title, body, notificationType, postId, userId)
             } else {
-                // If in background/killed, FCM system tray handles it, but we can still
-                // log for debugging or custom handling if default notification is not enough.
+                // if in background/killed, FCM system tray handles it, but we can still
+                // log for debugging or custom handling if default notification is not enough
                 Log.d(TAG, "App is in background/killed. FCM will display notification.")
             }
         }
 
         // Check if message contains a notification payload.
-        // If a notification payload is present, FCM generally handles displaying it
+        // If a notification payload is present, FCM handles displaying it
         // when the app is in the background/killed. If the app is in the foreground,
-        // onMessageReceived is called, and you'll need to manually display it
-        // if you want it to appear. We already handle this through the data payload
-        // processing above for consistency.
+        // onMessageReceived is called, and we handle this through the data payload processing above.
         remoteMessage.notification?.let {
             Log.d(TAG, "Message Notification Body: ${it.body}")
         }
@@ -136,70 +130,68 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         type: String?,
         postId: String?,
         userId: String?,
-        followerId: String? // Can be redundant with userId for new_follower
+//        followerId: String? // userId for new_follower
     ) {
-        // Create an Intent for the MainActivity
+        // create an Intent for the MainActivity
         val intent = Intent(this, MainActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP) // Clear activity stack
-            // Pass data as extras to the intent
+            // clear activity stack
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            // pass data as extras to the intent
             putExtra("type", type)
             Log.d(TAG, "sendNotification: Putting extra 'type': $type")
             if (postId != null) {
                 putExtra("postId", postId)
                 Log.d(TAG, "sendNotification: Putting extra 'postId': $postId")
             }
-            // Use 'userId' for navigation, as MainActivity expects this
-            // For 'new_follower', the followerId is the relevant userId
-            // For 'comment_deleted', 'like', 'comment', no direct userId is needed for navigation itself
-            // but the Cloud Function might pass one if it wants to identify the source.
-            // Ensure consistency between Cloud Function 'data' keys and Android 'putExtra' keys.
+            // use 'userId' for navigation, as MainActivity expects this
+            // for 'new_follower', the followerId is the relevant userId
+            // for 'comment_deleted', 'like', 'comment', no direct userId is needed for navigation itself
+            // but the Cloud Function might pass one if it wants to identify the source
+            // ensure consistency between Cloud Function 'data' keys and Android 'putExtra' keys
             if (userId != null) {
-                putExtra("userId", userId) // Used for new_follower navigation
+                putExtra("userId", userId)      // used for new_follower navigation
                 Log.d(TAG, "sendNotification: Putting extra 'userId': $userId")
             }
-            // Log all extras just to be super sure
+            // log all extras to be sure
             Log.d(TAG, "sendNotification: Intent extras: ${extras?.keySet()?.joinToString(", ")}")
         }
 
-        // Create a PendingIntent to be triggered when the user taps the notification
+        // create a PendingIntent to be triggered when the user taps the notification
         val pendingIntent = PendingIntent.getActivity(
             this,
-            Random.nextInt(), // Use a unique request code for each notification
+            Random.nextInt(),   // use a unique request code for each notification
             intent,
-            PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE // FLAG_IMMUTABLE is required for Android 12+
+            PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE     // FLAG_IMMUTABLE is required for Android 12+
         )
 
-        // Create a Notification Channel (required for Android 8.0 and above)
+        // create a Notification Channel (required for Android 8.0 and above)
         createNotificationChannel()
 
-        // Build the notification
+        // build the notification
         val notificationBuilder = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher_round) // Set your app's small icon
+            .setSmallIcon(R.mipmap.ic_launcher_round)
             .setContentTitle(title)
             .setContentText(body)
-            .setAutoCancel(true) // Automatically dismiss the notification when tapped
-            .setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)) // Default notification sound
-            .setContentIntent(pendingIntent) // Set the intent to launch when notification is tapped
-            .setPriority(NotificationCompat.PRIORITY_HIGH) // Set priority for heads-up notification
+            .setAutoCancel(true)                            // automatically dismiss the notification when tapped
+            .setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION))     // default notification sound
+            .setContentIntent(pendingIntent)                // set the intent to launch when notification is tapped
+            .setPriority(NotificationCompat.PRIORITY_HIGH)  // set priority for heads-up notification
 
-        // Show the notification with permission check for Android 13+
+        // show the notification with permission check for Android 13+
         with(NotificationManagerCompat.from(this)) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 if (ContextCompat.checkSelfPermission(
-                        this@MyFirebaseMessagingService, // Use 'this@MyFirebaseMessagingService' for context
+                        this@MyFirebaseMessagingService,            // use 'this@MyFirebaseMessagingService' for context
                         android.Manifest.permission.POST_NOTIFICATIONS
                     ) == PackageManager.PERMISSION_GRANTED
                 ) {
-                    notify(Random.nextInt(), notificationBuilder.build()) // Use a unique ID for each notification
+                    notify(Random.nextInt(), notificationBuilder.build())   // use a unique ID for each notification
                     Log.d(TAG, "Notification displayed successfully (API 33+).")
                 } else {
                     Log.w(TAG, "Notification permission denied. Cannot display notification (API 33+).")
-                    // You might want to queue the notification or inform the user
-                    // that notifications are disabled.
                 }
             } else {
-                // For APIs < 33, POST_NOTIFICATIONS permission is not required at runtime
-                // (it's granted at install time).
+                // for APIs < 33, POST_NOTIFICATIONS permission is not required at runtime
                 notify(Random.nextInt(), notificationBuilder.build())
                 Log.d(TAG, "Notification displayed successfully (API < 33).")
             }
@@ -210,23 +202,20 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
      * Creates a NotificationChannel for Android 8.0 (Oreo) and above.
      */
     private fun createNotificationChannel() {
-        // Create the NotificationChannel, but only on API 26+ because
-        // the NotificationChannel class is new and not in the support library
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                CHANNEL_NAME,
-                NotificationManager.IMPORTANCE_HIGH // Importance level
-            ).apply {
-                description = CHANNEL_DESCRIPTION
-                // Enable vibration and sound by default for this channel
-                enableVibration(true)
-                setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION), null)
-            }
-            val notificationManager: NotificationManager =
-                getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            notificationManager.createNotificationChannel(channel)
+        // create the NotificationChannel
+        val channel = NotificationChannel(
+            CHANNEL_ID,
+            CHANNEL_NAME,
+            NotificationManager.IMPORTANCE_HIGH     // importance level
+        ).apply {
+            description = CHANNEL_DESCRIPTION
+            // enable vibration and sound for this channel
+            enableVibration(true)
+            setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION), null)
         }
+        val notificationManager: NotificationManager =
+            getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.createNotificationChannel(channel)
     }
 
     /**
@@ -234,12 +223,6 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
      * A more robust solution might involve tracking activity lifecycle or using a broadcast receiver.
      */
     private fun isAppInForeground(): Boolean {
-        // This is a simplified check. For a production app, you might
-        // implement a more sophisticated way to track foreground status.
-        // For debugging, we can assume it's foreground if onMessageReceived is called
-        // for notification payloads that FCM *would* display in background.
-        // Or you can return true to always show notification if message has data payload
-        // and you want to manage it yourself.
-        return true // For testing, always assume foreground to see manual notifications
+        return true // for testing; always assume foreground to see manual notifications
     }
 }

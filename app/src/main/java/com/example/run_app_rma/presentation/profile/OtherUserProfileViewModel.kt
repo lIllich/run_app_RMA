@@ -49,20 +49,16 @@ class OtherUserProfileViewModel(
     private val _userLikedPostIds = MutableStateFlow<Set<String>>(emptySet())
     val userLikedPostIds: StateFlow<Set<String>> = _userLikedPostIds.asStateFlow()
 
-    // New: State to track if the current user is following the viewed user
     private val _isFollowingViewedUser = MutableStateFlow(false)
     val isFollowingViewedUser: StateFlow<Boolean> = _isFollowingViewedUser.asStateFlow()
 
-    // New: State to track loading for the follow/unfollow button
     private val _isTogglingFollow = MutableStateFlow(false)
     val isTogglingFollow: StateFlow<Boolean> = _isTogglingFollow.asStateFlow()
 
     private val TAG = "OtherUserProfileVM"
 
-    // The ID of the user whose profile is being viewed
     private var currentViewedUserId: String? = null
 
-    // The ID of the currently logged-in user (for conditional UI and liking posts)
     val currentLoggedInUserId: String?
         get() = firebaseAuth.currentUser?.uid
 
@@ -72,7 +68,7 @@ class OtherUserProfileViewModel(
             currentViewedUserId = userId
             fetchUserProfileAndData(userId)
             fetchUserLikedPosts(currentLoggedInUserId)
-            fetchFollowingStatus(userId) // Fetch initial following status
+            fetchFollowingStatus(userId)
         }
     }
 
@@ -81,7 +77,7 @@ class OtherUserProfileViewModel(
         _errorMessage.value = null
         viewModelScope.launch {
             try {
-                // Fetch user profile
+                // fetch user profile
                 val userResult = userRepository.getUserProfile(userId)
                 if (userResult.isSuccess) {
                     _viewedUser.value = userResult.getOrNull()
@@ -90,7 +86,7 @@ class OtherUserProfileViewModel(
                     _viewedUser.value = null
                 }
 
-                // Fetch following count
+                // fetch following count
                 val followingCountResult = followRepository.getFollowingCount(userId)
                 if (followingCountResult.isSuccess) {
                     _followingCount.value = followingCountResult.getOrNull() ?: 0
@@ -99,7 +95,7 @@ class OtherUserProfileViewModel(
                     _followingCount.value = 0
                 }
 
-                // Fetch followers count
+                // fetch followers count
                 val followersCountResult = followRepository.getFollowersCount(userId)
                 if (followersCountResult.isSuccess) {
                     _followersCount.value = followersCountResult.getOrNull() ?: 0
@@ -108,8 +104,7 @@ class OtherUserProfileViewModel(
                     _followersCount.value = 0
                 }
 
-                // Fetch user's posts
-                // Corrected: Use getRunPostsByUsers which takes a list of user IDs
+                // fetch user's posts
                 val postsResult = runPostRepository.getRunPostsByUsers(listOf(userId))
                 if (postsResult.isSuccess) {
                     _viewedUserPosts.value = postsResult.getOrNull()?.sortedByDescending { it.timestamp } ?: emptyList()
@@ -127,11 +122,6 @@ class OtherUserProfileViewModel(
         }
     }
 
-    /**
-     * Fetches the IDs of posts liked by the current logged-in user.
-     * This is needed to correctly display the like status on RunPostCard.
-     * @param currentLoggedInUserId The ID of the currently logged-in user.
-     */
     private fun fetchUserLikedPosts(currentLoggedInUserId: String?) {
         if (currentLoggedInUserId == null) {
             _userLikedPostIds.value = emptySet()
@@ -149,9 +139,6 @@ class OtherUserProfileViewModel(
         }
     }
 
-    /**
-     * Fetches the following status of the current logged-in user towards the viewed user.
-     */
     private fun fetchFollowingStatus(viewedUserId: String) {
         val currentId = currentLoggedInUserId
         if (currentId == null) {
@@ -159,18 +146,19 @@ class OtherUserProfileViewModel(
             Log.w(TAG, "fetchFollowingStatus: currentId is null, cannot check following status.")
             return
         }
-        if (currentId == viewedUserId) { // Cannot follow yourself
+        if (currentId == viewedUserId) {    // cannot follow yourself
             _isFollowingViewedUser.value = false
             Log.d(TAG, "fetchFollowingStatus: currentId and viewedUserId are same, cannot follow self.")
             return
         }
-        // Add explicit validation for blank IDs before proceeding
+        // explicit validation for blank IDs
         if (currentId.isBlank() || viewedUserId.isBlank()) {
-            Log.e(TAG, "fetchFollowingStatus: Attempted to check following status with blank ID: currentId='$currentId', viewedUserId='$viewedUserId'")
+            Log.e(TAG,
+                "fetchFollowingStatus: Attempted to check following status with blank ID: currentId='$currentId'," +
+                        "viewedUserId='$viewedUserId'")
             _isFollowingViewedUser.value = false
             return
         }
-
 
         viewModelScope.launch {
             val result = followRepository.isFollowing(currentId, viewedUserId)
@@ -184,9 +172,6 @@ class OtherUserProfileViewModel(
         }
     }
 
-    /**
-     * Toggles the follow status for the viewed user.
-     */
     fun toggleFollowViewedUser() {
         val currentId = currentLoggedInUserId ?: run {
             _errorMessage.value = "Morate biti prijavljeni za praćenje korisnika."
@@ -203,16 +188,15 @@ class OtherUserProfileViewModel(
             Log.w(TAG, "toggleFollowViewedUser: currentId and targetUserId are same.")
             return
         }
-        // Add explicit validation for blank IDs before proceeding
+        // explicit validation for blank IDs
         if (currentId.isBlank() || targetUserId.isBlank()) {
             _errorMessage.value = "Korisnički ID-jevi ne mogu biti prazni."
             Log.e(TAG, "toggleFollowViewedUser: Attempted to toggle follow with blank ID: currentId='$currentId', targetUserId='$targetUserId'")
             return
         }
 
-
         viewModelScope.launch {
-            _isTogglingFollow.value = true // Start loading for the button
+            _isTogglingFollow.value = true
             _errorMessage.value = null
             Log.d(TAG, "toggleFollowViewedUser: Toggling follow status for $targetUserId by $currentId.")
 
@@ -226,9 +210,9 @@ class OtherUserProfileViewModel(
             }
 
             result.onSuccess {
-                _isFollowingViewedUser.value = !isCurrentlyFollowing // Optimistic update
+                _isFollowingViewedUser.value = !isCurrentlyFollowing
                 Log.d(TAG, "toggleFollowViewedUser: Follow/Unfollow successful. New status: ${_isFollowingViewedUser.value}")
-                // Re-fetch follower/following counts for the viewed user to reflect the change
+                // re-fetch follower/following counts for the viewed user to reflect the change
                 currentViewedUserId?.let { id ->
                     followRepository.getFollowersCount(id).onSuccess { count ->
                         _followersCount.value = count
@@ -270,8 +254,8 @@ class OtherUserProfileViewModel(
 
             result.onSuccess {
                 Log.d(TAG, "Like/Unlike successful for post $postId. Re-fetching posts and likes.")
-                currentViewedUserId?.let { fetchUserProfileAndData(it) } // Re-fetch posts for the viewed user
-                fetchUserLikedPosts(currentUserId) // Re-fetch current user's likes
+                currentViewedUserId?.let { fetchUserProfileAndData(it) }    // re-fetch posts for the viewed user
+                fetchUserLikedPosts(currentUserId)                          // re-fetch current user's likes
             }.onFailure { e ->
                 _errorMessage.value = "Greška pri lajkanju objave: ${e.message}"
                 Log.e(TAG, "Error liking/unliking post $postId: ${e.message}", e)

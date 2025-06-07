@@ -2,7 +2,6 @@ package com.example.run_app_rma.presentation.feed
 
 import android.app.Application
 import android.util.Log
-
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -35,14 +34,11 @@ class FeedViewModel(
     private val _isInitialLoading = MutableStateFlow(true)
     val isInitialLoading: StateFlow<Boolean> = _isInitialLoading.asStateFlow()
 
-    // New: State for pull-to-refresh
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
-
     private val _isLoadingAction = MutableStateFlow(false)
     val isLoadingAction: StateFlow<Boolean> = _isLoadingAction.asStateFlow()
-
 
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
@@ -68,15 +64,15 @@ class FeedViewModel(
             _errorMessage.value = "Korisnik nije prijavljen."
             Log.d(TAG, "loadFeedPosts called but currentUserId is null. User not authenticated.")
             _isInitialLoading.value = false
-            _isRefreshing.value = false // Also reset refreshing state
+            _isRefreshing.value = false
             return
         }
 
         Log.d(TAG, "loadFeedPosts called for userId: $currentUserId")
 
-        // Only set initial loading if it's the very first load, otherwise rely on isRefreshing
-        if (!_isInitialLoading.value) { // Prevent showing initial loading spinner on subsequent refreshes
-            _isRefreshing.value = true // Set refreshing to true for pull-to-refresh
+        // only set initial loading if it's the very first load, otherwise rely on isRefreshing
+        if (!_isInitialLoading.value) {
+            _isRefreshing.value = true
         }
 
         _errorMessage.value = null
@@ -95,7 +91,7 @@ class FeedViewModel(
                         _userLikedPostIds.value = emptySet()
                         _errorMessage.value = "Ne pratite nijednog korisnika. Pratite nekoga da vidite objave."
                         _isInitialLoading.value = false
-                        _isRefreshing.value = false // Also reset refreshing state
+                        _isRefreshing.value = false
                         return@launch
                     }
 
@@ -142,7 +138,7 @@ class FeedViewModel(
                 Log.e(TAG, "Unexpected error in loadFeedPosts: ${e.message}", e)
             } finally {
                 _isInitialLoading.value = false
-                _isRefreshing.value = false // Reset refreshing state after completion/error
+                _isRefreshing.value = false         // reset refreshing state after completion/error
                 Log.d(TAG, "loadFeedPosts finished. isInitialLoading set to false, isRefreshing set to false.")
             }
         }

@@ -13,7 +13,7 @@ import com.example.run_app_rma.domain.model.SensorDataEntity
 
 @Database(
     entities = [RunEntity::class, SensorDataEntity::class, LocationDataEntity::class],
-    version = 2
+    version = 3
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun runDao(): RunDao

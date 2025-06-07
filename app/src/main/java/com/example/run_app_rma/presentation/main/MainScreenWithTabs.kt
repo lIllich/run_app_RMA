@@ -1,9 +1,6 @@
-// MainScreenWithTabs.kt
 package com.example.run_app_rma.presentation.main
 
 import android.app.Application
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -11,13 +8,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material.icons.filled.DirectionsRun
 import androidx.compose.material.icons.filled.DynamicFeed
-import androidx.compose.material.icons.filled.People
-import androidx.compose.material.icons.filled.UploadFile // Keep this for "Objavi"
-import androidx.compose.material.icons.filled.Search // Import for Search icon
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
@@ -29,19 +22,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.run_app_rma.data.firestore.repository.FollowRepository
-import com.example.run_app_rma.data.firestore.repository.RunPostRepository // Import RunPostRepository
+import com.example.run_app_rma.data.firestore.repository.RunPostRepository
 import com.example.run_app_rma.data.firestore.repository.UserRepository
 import com.example.run_app_rma.data.remote.AuthRepository
-import com.example.run_app_rma.presentation.feed.FeedScreen // Import FeedScreen
-import com.example.run_app_rma.presentation.feed.FeedViewModel // Import FeedViewModel
-import com.example.run_app_rma.presentation.search.SearchUserScreen // Renamed from FollowScreen
-import com.example.run_app_rma.presentation.search.SearchUserViewModel // Renamed from FollowViewModel
+import com.example.run_app_rma.presentation.feed.FeedScreen
+import com.example.run_app_rma.presentation.feed.FeedViewModel
 import com.example.run_app_rma.presentation.profile.ProfileScreen
 import com.example.run_app_rma.presentation.profile.ProfileViewModel
-import com.example.run_app_rma.presentation.publish.PublishRunScreen // Import PublishRunScreen
-import com.example.run_app_rma.presentation.publish.PublishRunViewModel // Import PublishRunViewModel
-import com.example.run_app_rma.presentation.track.RunningScreen
+import com.example.run_app_rma.presentation.publish.PublishRunScreen
+import com.example.run_app_rma.presentation.publish.PublishRunViewModel
+import com.example.run_app_rma.presentation.search.SearchUserScreen
+import com.example.run_app_rma.presentation.search.SearchUserViewModel
 import com.example.run_app_rma.presentation.track.RunViewModel
+import com.example.run_app_rma.presentation.track.RunningScreen
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
@@ -54,7 +47,6 @@ enum class TabScreen(val title: String, val icon: ImageVector) {
     PROFILE("Profil", Icons.Default.AccountCircle)
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun MainScreenWithTabs(
     modifier: Modifier = Modifier,
@@ -65,18 +57,18 @@ fun MainScreenWithTabs(
     authRepository: AuthRepository,
     onLogout: () -> Unit,
     onEditProfile: (String) -> Unit,
-    runPostRepository: RunPostRepository, // Passed from MainActivity
-    appDatabase: com.example.run_app_rma.data.db.AppDatabase, // Passed from MainActivity
-    // New parameters to pass down navigation actions
+    runPostRepository: RunPostRepository,
+    appDatabase: com.example.run_app_rma.data.db.AppDatabase,
     onViewUserPosts: (String) -> Unit,
     onViewFollowing: (String) -> Unit,
     onViewFollowers: (String) -> Unit,
-    onUserClick: (String) -> Unit, // For UserCard clicks in FollowScreen and RunPostCard clicks
-    onPostClick: (String) -> Unit, // Added onPostClick parameter
-    onRunClick: (Long) -> Unit // Added onRunClick parameter for PublishRunScreen
+    onUserClick: (String) -> Unit,
+    onPostClick: (String) -> Unit,
+    onRunClick: (Long) -> Unit
 ) {
-    val pagerState = rememberPagerState(initialPage = TabScreen.FEED.ordinal) { // Set initial page to Feed
-        TabScreen.values().size
+    // set initial page to feed
+    val pagerState = rememberPagerState(initialPage = TabScreen.FEED.ordinal) {
+        TabScreen.entries.size
     }
     val scope = rememberCoroutineScope()
 
@@ -90,8 +82,8 @@ fun MainScreenWithTabs(
         )
     )
 
-    val searchUserViewModel: SearchUserViewModel = viewModel( // Renamed from followViewModel
-        factory = SearchUserViewModel.Factory( // Renamed from FollowViewModel.Factory
+    val searchUserViewModel: SearchUserViewModel = viewModel(
+        factory = SearchUserViewModel.Factory(
             userRepository = userRepository,
             followRepository = FollowRepository(FirebaseFirestore.getInstance()),
             firebaseAuth = firebaseAuth
@@ -117,10 +109,10 @@ fun MainScreenWithTabs(
         )
     )
 
-    // Observe changes in the selected tab and refresh data accordingly
+    // observe changes in the selected tab and refresh data accordingly
     LaunchedEffect(pagerState.currentPage) {
-        when (TabScreen.values()[pagerState.currentPage]) {
-            TabScreen.FEED -> feedViewModel.loadFeedPosts() // Load posts when Feed tab is selected
+        when (TabScreen.entries[pagerState.currentPage]) {
+            TabScreen.FEED -> feedViewModel.loadFeedPosts() // load posts when feed tab is selected
             TabScreen.PROFILE -> profileViewModel.fetchUserProfileAndCounts()
             TabScreen.PUBLISH -> publishRunViewModel.loadLocalRuns()
             else -> { /* Do nothing for other tabs */ }
@@ -132,7 +124,7 @@ fun MainScreenWithTabs(
             TabRow(
                 selectedTabIndex = pagerState.currentPage
             ) {
-                TabScreen.values().forEachIndexed { index, screen ->
+                TabScreen.entries.forEachIndexed { index, screen ->
                     Tab(
                         selected = pagerState.currentPage == index,
                         onClick = {
@@ -151,20 +143,20 @@ fun MainScreenWithTabs(
             state = pagerState,
             modifier = modifier.padding(innerPadding)
         ) { page ->
-            when (TabScreen.values()[page]) {
+            when (TabScreen.entries[page]) {
                 TabScreen.FEED -> FeedScreen(
                     feedViewModel = feedViewModel,
-                    onUserClick = onUserClick, // Pass the onUserClick lambda
-                    onPostClick = onPostClick // Pass onPostClick to FeedScreen
+                    onUserClick = onUserClick,
+                    onPostClick = onPostClick
                 )
                 TabScreen.RUNNING -> RunningScreen(runViewModel = runViewModel)
-                TabScreen.SEARCH -> SearchUserScreen( // Renamed from FollowScreen
-                    searchUserViewModel = searchUserViewModel, // Renamed from followViewModel
-                    onUserClick = onUserClick // Pass the onUserClick lambda
+                TabScreen.SEARCH -> SearchUserScreen(
+                    searchUserViewModel = searchUserViewModel,
+                    onUserClick = onUserClick
                 )
                 TabScreen.PUBLISH -> PublishRunScreen(
                     publishRunViewModel = publishRunViewModel,
-                    onRunClick = onRunClick // Pass onRunClick to PublishRunScreen
+                    onRunClick = onRunClick
                 )
                 TabScreen.PROFILE -> ProfileScreen(
                     profileViewModel = profileViewModel,
@@ -173,7 +165,7 @@ fun MainScreenWithTabs(
                     onViewUserPosts = onViewUserPosts,
                     onViewFollowing = onViewFollowing,
                     onViewFollowers = onViewFollowers,
-                    onUserClick = onUserClick // Pass the onUserClick lambda to ProfileScreen for its posts
+                    onUserClick = onUserClick
                 )
             }
         }

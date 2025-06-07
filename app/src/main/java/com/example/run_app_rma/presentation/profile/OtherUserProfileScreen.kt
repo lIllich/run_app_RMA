@@ -1,9 +1,7 @@
 package com.example.run_app_rma.presentation.profile
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -11,14 +9,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width // Added import for width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults // Added import for ButtonDefaults
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -32,20 +27,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import coil.compose.rememberAsyncImagePainter
-import com.example.run_app_rma.R
-import com.example.run_app_rma.data.firestore.model.User
-import com.example.run_app_rma.presentation.common.RunPostCard
-import java.text.DecimalFormat
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -53,12 +36,12 @@ fun OtherUserProfileScreen(
     modifier: Modifier = Modifier,
     otherUserProfileViewModel: OtherUserProfileViewModel = viewModel(factory = OtherUserProfileViewModel.Factory),
     onBack: () -> Unit,
-    onEditProfile: (String) -> Unit, // Only used if it's the current user's profile
-    onLogout: () -> Unit, // Only used if it's the current user's profile
-    onViewUserPosts: (String) -> Unit, // To view posts of this user
-    onViewFollowing: (String) -> Unit, // To view who this user follows
-    onViewFollowers: (String) -> Unit, // To view who follows this user
-    onUserClick: (String) -> Unit // New parameter: Lambda to navigate to another user's profile
+    onEditProfile: (String) -> Unit,    // if it's the current user's profile
+    onLogout: () -> Unit,               // if it's the current user's profile
+    onViewUserPosts: (String) -> Unit,  // posts of this user
+    onViewFollowing: (String) -> Unit,  // who this user follows
+    onViewFollowers: (String) -> Unit,  // who follows this user
+    onUserClick: (String) -> Unit
 ) {
     val viewedUser by otherUserProfileViewModel.viewedUser.collectAsState(initial = null)
     val isLoading by otherUserProfileViewModel.isLoading.collectAsState(initial = false)
@@ -66,15 +49,15 @@ fun OtherUserProfileScreen(
     val followingCount by otherUserProfileViewModel.followingCount.collectAsState()
     val followersCount by otherUserProfileViewModel.followersCount.collectAsState()
     val viewedUserPosts by otherUserProfileViewModel.viewedUserPosts.collectAsState()
-    val userLikedPostIds by otherUserProfileViewModel.userLikedPostIds.collectAsState()
+//    val userLikedPostIds by otherUserProfileViewModel.userLikedPostIds.collectAsState()
     val isFollowingViewedUser by otherUserProfileViewModel.isFollowingViewedUser.collectAsState() // New: Observe follow status
     val isTogglingFollow by otherUserProfileViewModel.isTogglingFollow.collectAsState() // New: Observe button loading
 
     val currentLoggedInUserId = otherUserProfileViewModel.currentLoggedInUserId
     val isCurrentUserProfile = viewedUser?.id == currentLoggedInUserId
 
-    val dateFormat = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
-    val decimalFormat = DecimalFormat("#.##")
+//    val dateFormat = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
+//    val decimalFormat = DecimalFormat("#.##")
 
     Scaffold(
         topBar = {
@@ -105,11 +88,11 @@ fun OtherUserProfileScreen(
                     Text("Pokušaj ponovo")
                 }
             } else if (viewedUser != null) {
-                // Reusing UserProfileContent for displaying basic profile details
+                // reusing UserProfileContent for displaying basic profile details
                 UserProfileContent(user = viewedUser!!)
                 Spacer(modifier = Modifier.height(32.dp))
 
-                // Conditional buttons for current user or follow button for other users
+                // conditional buttons for current user or follow button for other users
                 if (isCurrentUserProfile) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -133,7 +116,8 @@ fun OtherUserProfileScreen(
                             Text("Odjavi se")
                         }
                     }
-                } else { // Show follow button for other users
+                } else {
+                    // show follow button for other users
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.Center,
@@ -147,8 +131,12 @@ fun OtherUserProfileScreen(
                             onClick = { otherUserProfileViewModel.toggleFollowViewedUser() },
                             enabled = !isTogglingFollow, // Disable button while loading
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = if (isFollowingViewedUser) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.primary,
-                                contentColor = if (isFollowingViewedUser) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onPrimary
+                                containerColor = if (isFollowingViewedUser)
+                                    MaterialTheme.colorScheme.secondaryContainer
+                                else MaterialTheme.colorScheme.primary,
+                                contentColor = if (isFollowingViewedUser)
+                                    MaterialTheme.colorScheme.onSecondaryContainer
+                                else MaterialTheme.colorScheme.onPrimary
                             )
                         ) {
                             Text(if (isFollowingViewedUser) "Pratim" else "Prati")
@@ -157,7 +145,7 @@ fun OtherUserProfileScreen(
                 }
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Buttons for posts, following, and followers (always visible)
+                // buttons for posts, following, and followers (always visible)
                 Button(
                     onClick = { viewedUser?.let { onViewUserPosts(it.id) } },
                     modifier = Modifier.fillMaxWidth()
@@ -195,9 +183,6 @@ fun OtherUserProfileScreen(
                     }
                 }
                 Spacer(modifier = Modifier.height(16.dp))
-
-
-
             } else {
                 Text(text = "Korisnik nije pronađen.")
             }

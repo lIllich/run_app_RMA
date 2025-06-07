@@ -1,6 +1,5 @@
 package com.example.run_app_rma.presentation.publish
 
-import android.location.Location
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
@@ -20,6 +19,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import java.text.DecimalFormat
+import java.util.Locale
 import java.util.concurrent.TimeUnit
 import kotlin.math.atan2
 import kotlin.math.cos
@@ -55,7 +55,6 @@ class RunDetailsViewModel(
 
     init {
         loadRunDetails()
-//        loadLocationData()
     }
 
     private fun recalculateRun(run: RunEntity, locationData: List<LocationDataEntity>): RunEntity {
@@ -64,7 +63,7 @@ class RunDetailsViewModel(
 
         if (sorted.isEmpty()) {
             println("here x")
-            // If there's no location data, set distance and pace to 0 and end time to start time.
+            // if there's no location data, set distance and pace to 0 and end time to start time
             return run.copy(distance = 0f, avgPace = 0f, endTime = run.startTime)
         }
 
@@ -109,8 +108,8 @@ class RunDetailsViewModel(
 
                 if (run != null) {
                     val updatedRun = recalculateRun(run, locationData)
-                    runDao.update(updatedRun) // Save the recalculated run to Room DB
-                    _runDetails.value = updatedRun // Update the UI StateFlow
+                    runDao.update(updatedRun)       // save the recalculated run to Room DB
+                    _runDetails.value = updatedRun  // update the UI StateFlow
                 } else {
                     _errorMessage.value = "Trčanje s ID-jem $runId nije pronađeno."
                 }
@@ -122,20 +121,6 @@ class RunDetailsViewModel(
             }
         }
     }
-
-//    private fun loadLocationData() {
-//        viewModelScope.launch {
-//            _isLoading.value = true
-//            _errorMessage.value = null
-//            try {
-//                _locationData.value = locationDao.getLocationDataForRun(runId)
-//            } catch (e: Exception) {
-//                _errorMessage.value = "Greška pri dohvatu lokacijskih podataka: ${e.message}"
-//            } finally {
-//                _isLoading.value = false
-//            }
-//        }
-//    }
 
     fun onCaptionChanged(newCaption: String) {
         _caption.value = newCaption
@@ -176,8 +161,14 @@ class RunDetailsViewModel(
                 val result = runPostRepository.createRunPost(runPost)
 
                 result.onSuccess { postId ->
-                    // Update user's total runs and distance after successful publish
+                    // update user's total runs and distance after successful publish
                     updateUserStats(currentUserId, run.distance ?: 0f)
+
+                    // mark run as published in local DB
+                    val updatedRun = run.copy(isPublished = true)
+                    runDao.update(updatedRun)
+                    _runDetails.value = updatedRun
+
                     _successMessage.value = "Trčanje uspješno objavljeno! Post ID: $postId"
                 }.onFailure { e ->
                     _errorMessage.value = "Greška pri objavi trčanja: ${e.message}"
@@ -191,12 +182,12 @@ class RunDetailsViewModel(
         }
     }
 
-    private suspend fun updateUserStats(userId: String, distance: Float) {
+    private fun updateUserStats(userId: String, distance: Float) {
         viewModelScope.launch {
             val userResult = userRepository.getUserProfile(userId)
             userResult.onSuccess { user ->
-                val currentTotalDistance = user.totalDistanceRun ?: 0f
-                val currentTotalRuns = user.totalRuns ?: 0
+                val currentTotalDistance = user.totalDistanceRun
+                val currentTotalRuns = user.totalRuns
                 val updates = mapOf(
                     "totalDistanceRun" to (currentTotalDistance + distance),
                     "totalRuns" to (currentTotalRuns + 1),
@@ -230,7 +221,7 @@ class RunDetailsViewModel(
             val hours = TimeUnit.MILLISECONDS.toHours(durationMillis)
             val minutes = TimeUnit.MILLISECONDS.toMinutes(durationMillis) % 60
             val seconds = TimeUnit.MILLISECONDS.toSeconds(durationMillis) % 60
-            String.format("%02d:%02d:%02d", hours, minutes, seconds)
+            String.format(Locale.getDefault(), "%02d:%02d:%02d", hours, minutes, seconds)
         } else {
             "N/A"
         }
@@ -249,18 +240,6 @@ class RunDetailsViewModel(
         }
         return "${DecimalFormat("#.##").format(elevationGain)} m"
     }
-
-//    fun getRouteLength(locationData: List<LocationDataEntity>): String {
-//        if (locationData.size < 2) return "N/A"
-//
-//        var totalDistance = 0.0
-//        for (i in 1 until locationData.size) {
-//            val loc1 = locationData[i - 1]
-//            val loc2 = locationData[i]
-//            totalDistance += calculateHaversineDistance(loc1.lat, loc1.lon, loc2.lat, loc2.lon)
-//        }
-//        return "${DecimalFormat("#.##").format(totalDistance / 1000)} km"
-//    }
 
     private fun calculateHaversineDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
         val R = 6371e3 // metres
@@ -300,16 +279,20 @@ class RunDetailsViewModel(
                 val minutes = TimeUnit.MILLISECONDS.toMinutes(kmDurationMillis) % 60
                 val seconds = TimeUnit.MILLISECONDS.toSeconds(kmDurationMillis) % 60
 
-                val timeFormatted = String.format("%02d:%02d:%02d", hours, minutes, seconds)
-                val paceFormatted = String.format("%02d:%02d min/km", paceMinutes, paceSeconds)
+                val timeFormatted = String.format(Locale.getDefault(), "%02d:%02d:%02d", hours, minutes, seconds)
+                val paceFormatted = String.format(Locale.getDefault(), "%02d:%02d min/km", paceMinutes, paceSeconds)
 
                 splits.add(Pair(timeFormatted, paceFormatted))
 
-                currentKmDistance %= 1000.0 // remaining distance from last km
+                currentKmDistance %= 1000.0     // remaining distance from last km
                 currentSplitStartTime = currLoc.timestamp
             }
         }
         return splits
+    }
+
+    fun clearSuccessMessage() {
+        _successMessage.value = null
     }
 
     class Factory(
@@ -322,7 +305,7 @@ class RunDetailsViewModel(
     ) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(RunDetailsViewModel::class.java)) {
-                // Ensure all nullable parameters are non-null before constructing the ViewModel
+                // ensure all nullable parameters are non-null before constructing the ViewModel
                 if (runPostRepository != null && userRepository != null && firebaseAuth != null) {
                     @Suppress("UNCHECKED_CAST")
                     return RunDetailsViewModel(
@@ -334,8 +317,11 @@ class RunDetailsViewModel(
                         firebaseAuth
                     ) as T
                 } else {
-                    // Throw an informative exception if any required dependency is missing
-                    throw IllegalArgumentException("Missing required repositories or FirebaseAuth for RunDetailsViewModel. Check if runPostRepository, userRepository, or firebaseAuth are null.")
+                    // throw an informative exception if any required dependency is missing
+                    throw IllegalArgumentException(
+                        "Missing required repositories or FirebaseAuth for RunDetailsViewModel." +
+                                "Check if runPostRepository, userRepository, or firebaseAuth are null."
+                    )
                 }
             }
             throw IllegalArgumentException("Unknown ViewModel class")

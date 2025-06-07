@@ -24,8 +24,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
@@ -33,9 +31,8 @@ import com.example.run_app_rma.R
 import com.example.run_app_rma.data.firestore.model.User
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
-import java.util.Locale
 import java.util.Date
-
+import java.util.Locale
 
 @Composable
 fun ProfileScreen(
@@ -53,10 +50,10 @@ fun ProfileScreen(
     val errorMessage by profileViewModel.errorMessage.collectAsState()
     val followingCount by profileViewModel.followingCount.collectAsState()
     val followersCount by profileViewModel.followersCount.collectAsState()
-    val postCount by profileViewModel.postCount.collectAsState() // Observe the post count
+    val postCount by profileViewModel.postCount.collectAsState()
 
-    val dateFormat = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
-    val decimalFormat = DecimalFormat("#.##")
+//    val dateFormat = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
+//    val decimalFormat = DecimalFormat("#.##")
 
     Column(
         modifier = modifier
@@ -101,12 +98,12 @@ fun ProfileScreen(
             }
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Buttons for posts, following, and followers
+            // buttons for posts, following, and followers
             Button(
                 onClick = { currentUser?.let { onViewUserPosts(it.id) } },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Moje objave ($postCount)") // Display post count here
+                Text("Moje objave ($postCount)")    // display post count
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -140,14 +137,14 @@ fun ProfileScreen(
             }
             Spacer(modifier = Modifier.height(16.dp))
 
-            // New: Button to trigger recalculation, visible only for a specific user ID
+            // button to trigger recalculation, visible only for a specific user ID
             if (currentUser?.id == "1nfVhq0VD7amA3JGAtwcxGcyzd13") {
                 Button(
                     onClick = { profileViewModel.recalculateDistances() },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 16.dp),
-                    enabled = !isLoading // Disable button while loading
+                    enabled = !isLoading // disable button while loading
                 ) {
                     Text("Preračunaj ukupnu udaljenost")
                 }
@@ -168,7 +165,7 @@ fun UserProfileContent(user: User) {
     val dateFormat = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
 
     Image(
-        painter = if (user.profileImageUrl != null && user.profileImageUrl.isNotEmpty()) {
+        painter = if (!user.profileImageUrl.isNullOrEmpty()) {
             rememberAsyncImagePainter(user.profileImageUrl)
         } else {
             painterResource(R.drawable.ic_profile_placeholder)
@@ -187,7 +184,8 @@ fun UserProfileContent(user: User) {
     }
     Text(text = "Ukupna udaljenost: ${decimalFormat.format(user.totalDistanceRun / 1000)} km")
     Text(text = "Ukupno trčanja: ${user.totalRuns}")
-    // Display lastRunTimestamp if available and format it
+
+    // display lastRunTimestamp if available and format it
     user.lastRunTimestamp?.let { timestamp ->
         Text(text = "Posljednje trčanje: ${dateFormat.format(Date(timestamp))}")
     }

@@ -1,6 +1,5 @@
 package com.example.run_app_rma.presentation.publish
 
-import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -13,14 +12,13 @@ import com.example.run_app_rma.data.firestore.repository.RunPostRepository
 import com.example.run_app_rma.data.firestore.repository.UserRepository
 import com.example.run_app_rma.domain.model.RunEntity
 import com.google.firebase.auth.FirebaseAuth
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import com.google.firebase.firestore.GeoPoint
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import java.text.DecimalFormat
 import java.util.Date
 
 
@@ -35,7 +33,6 @@ class PublishRunViewModel(
     private val _isLoading = mutableStateOf(false)
     val isLoading: State<Boolean> = _isLoading
 
-    // New: State for pull-to-refresh
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
@@ -51,9 +48,9 @@ class PublishRunViewModel(
     private val _caption = mutableStateOf("")
     val caption: State<String> = _caption
 
-    private val decimalFormat = DecimalFormat("#.##")
+//    private val decimalFormat = DecimalFormat("#.##")
     
-    // Event flow za slanje poruka na UI (npr. za Toast)
+    // event flow for sending messages to UI (Toast)
     private val _eventFlow = MutableSharedFlow<UiEvent>()
     val eventFlow = _eventFlow.asSharedFlow()
 
@@ -185,7 +182,7 @@ class PublishRunViewModel(
         }
     }
 
-    fun clearMessages() {
+    private fun clearMessages() {
         _errorMessage.value = null
         _successMessage.value = null
     }

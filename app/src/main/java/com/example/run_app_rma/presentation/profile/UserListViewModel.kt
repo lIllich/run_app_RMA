@@ -17,7 +17,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import androidx.compose.runtime.mutableStateMapOf // Import for mutableStateMapOf
+import androidx.compose.runtime.mutableStateMapOf
 
 class UserListViewModel(
     private val followRepository: FollowRepository,
@@ -35,14 +35,11 @@ class UserListViewModel(
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
-    // New: Map to store following status for each user in the list
     private val _isFollowingMap = mutableStateMapOf<String, Boolean>()
     val isFollowingMap: Map<String, Boolean> = _isFollowingMap
 
-    // New: Map to store loading state for individual follow/unfollow actions
     private val _isTogglingFollowMap = mutableStateMapOf<String, Boolean>()
     val isTogglingFollowMap: Map<String, Boolean> = _isTogglingFollowMap
-
 
     private val TAG = "UserListViewModel"
 
@@ -51,7 +48,7 @@ class UserListViewModel(
 
     init {
         val userId = savedStateHandle.get<String>("userId")
-        val listType = savedStateHandle.get<String>("listType") // "following" or "followers"
+        val listType = savedStateHandle.get<String>("listType") // following or followers
 
         if (userId != null && listType != null) {
             loadUsers(userId, listType)
@@ -61,7 +58,7 @@ class UserListViewModel(
         }
     }
 
-    fun loadUsers(userId: String, listType: String) {
+    private fun loadUsers(userId: String, listType: String) {
         _isLoading.value = true
         _errorMessage.value = null
         viewModelScope.launch {
@@ -77,7 +74,6 @@ class UserListViewModel(
                     Log.d(TAG, "Fetched ${ids.size} IDs for $listType for user $userId.")
 
                     val userList = mutableListOf<User>()
-                    // Fetch full User objects for each ID
                     ids.forEach { id ->
                         val userResult = userRepository.getUserProfile(id)
                         userResult.onSuccess { user ->
@@ -86,9 +82,10 @@ class UserListViewModel(
                             Log.e(TAG, "Failed to fetch user profile for ID $id: ${e.message}")
                         }
                     }
-                    _users.value = userList.sortedBy { it.displayName.lowercase() } // Sort by display name
+                    // sort by display name
+                    _users.value = userList.sortedBy { it.displayName.lowercase() }
 
-                    // After loading users, fetch their following status relative to the current user
+                    // fetch following status relative to the current user
                     updateFollowingStatusForUsers(userList.map { it.id })
 
                 } else {
@@ -135,8 +132,8 @@ class UserListViewModel(
         }
 
         viewModelScope.launch {
-            _isTogglingFollowMap[targetUserId] = true // Set loading for this specific user
-            _errorMessage.value = null // Clear previous error messages
+            _isTogglingFollowMap[targetUserId] = true   // set loading for this specific user
+            _errorMessage.value = null                  // clear previous error messages
 
             val isCurrentlyFollowing = _isFollowingMap[targetUserId] ?: false
             val result = if (isCurrentlyFollowing) {
@@ -146,17 +143,13 @@ class UserListViewModel(
             }
 
             result.onSuccess {
-                _isFollowingMap[targetUserId] = !isCurrentlyFollowing // Optimistically update UI
-                // If this is the "following" list and we unfollow, we might want to remove the user
-                // For now, we'll just let the UI update the button state.
-                // If you want to remove the user from the list immediately, you'd need to
-                // refetch the list or modify _users directly.
+                _isFollowingMap[targetUserId] = !isCurrentlyFollowing
             }.onFailure { e ->
                 _errorMessage.value = "Failed to toggle follow status: ${e.message}"
                 Log.e(TAG, "Error toggling follow for $targetUserId: ${e.message}", e)
             }
 
-            _isTogglingFollowMap[targetUserId] = false // Reset loading
+            _isTogglingFollowMap[targetUserId] = false  // reset loading
 
         }
     }

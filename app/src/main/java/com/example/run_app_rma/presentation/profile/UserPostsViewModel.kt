@@ -35,7 +35,6 @@ class UserPostsViewModel(
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    // New: State for pull-to-refresh
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
@@ -55,8 +54,6 @@ class UserPostsViewModel(
     init {
         savedStateHandle.get<String>("userId")?.let { userId ->
             viewedUserId = userId
-            // Initial fetches will now be managed by the screen's DisposableEffect
-            // or by explicit calls when needed. ViewModel init is for setting up flows.
         }
     }
 
@@ -71,15 +68,15 @@ class UserPostsViewModel(
             return
         }
 
-        // Only set initial loading if it's the very first load, otherwise rely on isRefreshing
-        if (!_isLoading.value) { // Prevent showing initial loading spinner on subsequent refreshes
-            _isRefreshing.value = true // Set refreshing to true for pull-to-refresh
+        // only set initial loading if it's the very first load, otherwise rely on isRefreshing
+        if (!_isLoading.value) {
+            _isRefreshing.value = true
         }
 
         _errorMessage.value = null
         viewModelScope.launch {
             try {
-                // Fetch user's posts
+                // fetch user's posts
                 val postsResult = runPostRepository.getRunPostsByUsers(listOf(userId))
                 if (postsResult.isSuccess) {
                     _userPosts.value = postsResult.getOrNull()?.sortedByDescending { it.timestamp } ?: emptyList()
@@ -89,7 +86,7 @@ class UserPostsViewModel(
                     Log.e(TAG, "Error fetching user posts for $userId: ${postsResult.exceptionOrNull()?.message}")
                 }
 
-                // Fetch current user's liked posts
+                // fetch current user's liked posts
                 if (currentLoggedInUserId != null) {
                     val likesResult = runPostRepository.getLikesByUser(currentLoggedInUserId)
                     if (likesResult.isSuccess) {
@@ -103,25 +100,26 @@ class UserPostsViewModel(
                     Log.d(TAG, "Current logged in user is null, liked posts set to empty.")
                 }
 
-                // Fetch the post author's profile
+                // fetch the post author's profile
                 val authorResult = userRepository.getUserProfile(userId)
                 if (authorResult.isSuccess) {
                     _postAuthor.value = authorResult.getOrNull()
                 } else {
-                    Log.e(TAG, "Error fetching post author profile for $userId: ${authorResult.exceptionOrNull()?.message}")
+                    Log.e(
+                        TAG,
+                        "Error fetching post author profile for $userId: ${authorResult.exceptionOrNull()?.message}"
+                    )
                 }
-
             } catch (e: Exception) {
                 _errorMessage.value = e.message ?: "An unexpected error occurred while loading data."
                 Log.e(TAG, "Unexpected error in fetchAllUserDataForScreen: ${e.message}", e)
             } finally {
                 _isLoading.value = false
-                _isRefreshing.value = false // Reset refreshing state after completion/error
+                _isRefreshing.value = false
                 Log.d(TAG, "fetchAllUserDataForScreen finished. isLoading set to false, isRefreshing set to false.")
             }
         }
     }
-
 
     fun toggleLike(postId: String, isCurrentlyLiked: Boolean) {
         val currentUserId = firebaseAuth.currentUser?.uid
@@ -153,7 +151,7 @@ class UserPostsViewModel(
 
                 result.onSuccess {
                     Log.d(TAG, "Like/Unlike successful for post $postId. Re-fetching posts and likes for confirmation.")
-                    fetchAllUserDataForScreen() // Refresh all data to ensure consistency
+                    fetchAllUserDataForScreen()     // refresh all data for consistency
                 }.onFailure { e ->
                     _userLikedPostIds.value = previousLikedState
                     _errorMessage.value = e.message ?: "Greška pri lajkanju/otlajkavanju objave."

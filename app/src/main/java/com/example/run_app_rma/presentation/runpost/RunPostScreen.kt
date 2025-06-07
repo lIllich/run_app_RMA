@@ -1,10 +1,10 @@
 package com.example.run_app_rma.presentation.runpost
 
-import androidx.compose.foundation.ExperimentalFoundationApi // New import for HorizontalPager
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable // Import combinedClickable for long press
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -12,33 +12,39 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.Comment
 import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AccessTime
-import androidx.compose.material.icons.filled.Delete // Import for delete icon
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material.icons.filled.MoreVert // Import for three dots menu icon
+import androidx.compose.material.pullrefresh.PullRefreshIndicator
+import androidx.compose.material.pullrefresh.pullRefresh
+import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider // Added import for HorizontalDivider
-import androidx.compose.material3.DropdownMenu // Import for dropdown menu
-import androidx.compose.material3.DropdownMenuItem // Import for dropdown menu item
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -54,7 +60,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue // Import for mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -68,35 +74,29 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
 import com.example.run_app_rma.R
 import com.example.run_app_rma.data.firestore.model.Comment
-import com.example.run_app_rma.data.firestore.model.RunPost
 import com.example.run_app_rma.data.firestore.model.User
-import com.example.run_app_rma.presentation.common.UserCard // Import UserCard
-import androidx.compose.foundation.pager.HorizontalPager // Changed import
-import androidx.compose.foundation.pager.rememberPagerState // Changed import
-import com.google.accompanist.swiperefresh.SwipeRefresh // Import SwipeRefresh
-import com.google.accompanist.swiperefresh.rememberSwipeRefreshState // Import rememberSwipeRefreshState
+import com.example.run_app_rma.presentation.common.UserCard
 import kotlinx.coroutines.launch
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
-import java.util.Date
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class) // Changed OptIn
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
 @Composable
 fun RunPostScreen(
     modifier: Modifier = Modifier,
     runPostViewModel: RunPostViewModel = viewModel(factory = RunPostViewModel.Factory),
     onBack: () -> Unit,
-    onUserClick: (String) -> Unit, // To navigate to post creator's profile
-    onViewLikedUsers: (String, String) -> Unit, // To navigate to UserListScreen for liked users
-    onViewComments: (String) -> Unit, // To be implemented later for comments, currently for toast
-    onPostDeleted: () -> Unit // New callback for when the post is deleted
+    onUserClick: (String) -> Unit,
+    onViewLikedUsers: (String, String) -> Unit,
+    onViewComments: (String) -> Unit,
+    onPostDeleted: () -> Unit
 ) {
     val runPost by runPostViewModel.runPost.collectAsState()
     val postUser by runPostViewModel.postUser.collectAsState()
     val isInitialLoading: Boolean by runPostViewModel.isInitialLoading.collectAsState()
-    val isRefreshing by runPostViewModel.isRefreshing.collectAsState() // Observe refreshing state
+    val isRefreshing by runPostViewModel.isRefreshing.collectAsState()
     val isLoadingAction: Boolean by runPostViewModel.isLoadingAction.collectAsState()
     val errorMessage by runPostViewModel.errorMessage.collectAsState()
     val userLikedPostIds by runPostViewModel.userLikedPostIds.collectAsState()
@@ -104,9 +104,9 @@ fun RunPostScreen(
     val comments by runPostViewModel.comments.collectAsState()
     val commentUsers by runPostViewModel.commentUsers.collectAsState()
     val commentInput by runPostViewModel.commentInput.collectAsState()
-    val currentUserId by runPostViewModel.currentUserId.collectAsState() // Observe current user ID
+    val currentUserId by runPostViewModel.currentUserId.collectAsState()
 
-    var showPostMenu by remember { mutableStateOf(false) } // State for post dropdown menu
+    var showPostMenu by remember { mutableStateOf(false) }
 
     val dateFormat = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
     val decimalFormat = DecimalFormat("#.##")
@@ -114,8 +114,11 @@ fun RunPostScreen(
     val pagerState = rememberPagerState(initialPage = 0, pageCount = { 2 })
     val scope = rememberCoroutineScope()
 
-    val swipeRefreshState = rememberSwipeRefreshState(isRefreshing = isRefreshing) // Initialize SwipeRefreshState
-
+//    val swipeRefreshState = rememberSwipeRefreshState(isRefreshing = isRefreshing)
+    val swipeRefreshState = rememberPullRefreshState(
+        refreshing = isRefreshing,
+        onRefresh = { runPost?.id?.let { runPostViewModel.fetchRunPostAndRelatedData(it) } }
+    )
 
     Scaffold(
         topBar = {
@@ -125,7 +128,7 @@ fun RunPostScreen(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text("Objava Trčanja")
-                        if (isInitialLoading && !isRefreshing) { // Show initial loading only if not refreshing
+                        if (isInitialLoading && !isRefreshing) {
                             Spacer(modifier = Modifier.width(8.dp))
                             CircularProgressIndicator(
                                 modifier = Modifier.size(20.dp),
@@ -141,12 +144,12 @@ fun RunPostScreen(
                     }
                 },
                 actions = {
-                    // Show three dots menu only if current user is the post owner
+                    // show three dots menu only if current user is the post owner
                     if (runPost != null && currentUserId == runPost?.userId) {
                         IconButton(onClick = { showPostMenu = true }) {
                             Icon(Icons.Default.MoreVert, contentDescription = "Opcije objave")
                         }
-                        // Dropdown menu for post deletion
+                        // dropdown menu for post deletion
                         DropdownMenu(
                             expanded = showPostMenu,
                             onDismissRequest = { showPostMenu = false }
@@ -154,10 +157,10 @@ fun RunPostScreen(
                             DropdownMenuItem(
                                 text = { Text("Obriši objavu") },
                                 onClick = {
-                                    showPostMenu = false // Dismiss menu immediately
+                                    showPostMenu = false
                                     runPostViewModel.deletePost(
                                         postId = runPost!!.id,
-                                        onSuccessAction = { onPostDeleted() } // Pass the navigation callback
+                                        onSuccessAction = { onPostDeleted() }
                                     )
                                 },
                                 leadingIcon = {
@@ -170,18 +173,26 @@ fun RunPostScreen(
             )
         }
     ) { paddingValues ->
-        // Wrap the main content with SwipeRefresh
-        SwipeRefresh(
-            state = swipeRefreshState,
-            onRefresh = { runPost?.id?.let { runPostViewModel.fetchRunPostAndRelatedData(it) } }, // Trigger refresh
+//        SwipeRefresh(
+//            state = swipeRefreshState,
+//            onRefresh = { runPost?.id?.let { runPostViewModel.fetchRunPostAndRelatedData(it) } },
+//            modifier = modifier
+//                .fillMaxSize()
+//                .padding(paddingValues)
+        Box(
             modifier = modifier
                 .fillMaxSize()
                 .padding(paddingValues)
+                .pullRefresh(swipeRefreshState)
         ) {
+            val scrollState = rememberScrollState()
+
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 16.dp),
+                    .verticalScroll(scrollState)
+//                    .padding(horizontal = 16.dp),
+                    .padding(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Top
             ) {
@@ -255,14 +266,14 @@ fun RunPostScreen(
                                 val minutes = TimeUnit.MILLISECONDS.toMinutes(durationMillis)
                                 val seconds = TimeUnit.MILLISECONDS.toSeconds(durationMillis) - TimeUnit.MINUTES.toSeconds(minutes)
                                 if (minutes == 0L) {
-                                    "${seconds} s"
+                                    "$seconds s"
                                 } else {
-                                    "${minutes} min i ${seconds} s"
+                                    "$minutes min i $seconds s"
                                 }
                             } else {
                                 val hours = TimeUnit.MILLISECONDS.toHours(durationMillis)
                                 val minutes = TimeUnit.MILLISECONDS.toMinutes(durationMillis) - TimeUnit.HOURS.toMinutes(hours)
-                                String.format("%02d:%02d", hours, minutes)
+                                String.format(Locale.getDefault(), "%02d:%02d", hours, minutes)
                             }
                             Text(
                                 text = durationText,
@@ -347,6 +358,7 @@ fun RunPostScreen(
                         state = pagerState,
                         modifier = Modifier
                             .fillMaxWidth()
+                            .heightIn(min = 200.dp)
                             .weight(1f)
                     ) { page ->
                         when (page) {
@@ -354,7 +366,9 @@ fun RunPostScreen(
                                 Column(
                                     modifier = Modifier
                                         .fillMaxSize()
-                                        .padding(horizontal = 16.dp, vertical = 8.dp)
+//                                        .verticalScroll(rememberScrollState())
+//                                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                                        .padding(16.dp)
                                 ) {
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
@@ -397,10 +411,10 @@ fun RunPostScreen(
                                                     comment = comment,
                                                     commenter = commenter,
                                                     dateFormat = dateFormat,
-                                                    currentUserId = currentUserId, // Pass current user ID
-                                                    postOwnerId = post.userId, // Pass post owner ID
+                                                    currentUserId = currentUserId,
+                                                    postOwnerId = post.userId,
                                                     onUserClick = onUserClick,
-                                                    onDeleteComment = { commentId -> runPostViewModel.deleteComment(commentId) } // Pass delete lambda
+                                                    onDeleteComment = { commentId -> runPostViewModel.deleteComment(commentId) }
                                                 )
                                             }
                                         }
@@ -438,22 +452,28 @@ fun RunPostScreen(
                     Text("Objava nije pronađena.")
                 }
             }
+
+            PullRefreshIndicator(
+                refreshing = isRefreshing,
+                state = swipeRefreshState,
+                modifier = Modifier.align(Alignment.TopCenter)
+            )
         }
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class) // For combinedClickable
 @Composable
 fun CommentItem(
     comment: Comment,
     commenter: User?,
     dateFormat: SimpleDateFormat,
-    currentUserId: String?, // New parameter for current user ID
-    postOwnerId: String?, // New parameter for post owner ID
+    currentUserId: String?,
+    postOwnerId: String?,
     onUserClick: (String) -> Unit,
-    onDeleteComment: (String) -> Unit // New parameter for delete callback
+    onDeleteComment: (String) -> Unit
 ) {
-    var showMenu by remember { mutableStateOf(false) } // State to control dropdown menu visibility
+    // state to control dropdown menu visibility
+    var showMenu by remember { mutableStateOf(false) }
 
     val canDeleteComment = currentUserId != null &&
             (currentUserId == comment.userId || currentUserId == postOwnerId)
@@ -461,11 +481,11 @@ fun CommentItem(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .combinedClickable( // Use combinedClickable for long press
-                onClick = { /* Regular click action if any, or leave empty */ },
+            .combinedClickable( // combinedClickable used for long press
+                onClick = { /* no op */ },
                 onLongClick = {
                     if (canDeleteComment) {
-                        showMenu = true // Show menu on long press if user can delete
+                        showMenu = true
                     }
                 }
             ),
@@ -513,7 +533,7 @@ fun CommentItem(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            // Dropdown menu for delete option
+            // dropdown menu for delete option
             DropdownMenu(
                 expanded = showMenu,
                 onDismissRequest = { showMenu = false }
@@ -523,7 +543,7 @@ fun CommentItem(
                         text = { Text("Obriši komentar") },
                         onClick = {
                             onDeleteComment(comment.id)
-                            showMenu = false // Dismiss menu after action
+                            showMenu = false
                         },
                         leadingIcon = {
                             Icon(Icons.Default.Delete, contentDescription = "Obriši")

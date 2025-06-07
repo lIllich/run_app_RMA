@@ -1,4 +1,4 @@
-package com.example.run_app_rma.presentation.search // New package name
+package com.example.run_app_rma.presentation.search
 
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateListOf
@@ -19,7 +19,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 
-class SearchUserViewModel( // Renamed from FollowViewModel
+class SearchUserViewModel(
     private val userRepository: UserRepository,
     private val followRepository: FollowRepository,
     private val firebaseAuth: FirebaseAuth
@@ -34,11 +34,11 @@ class SearchUserViewModel( // Renamed from FollowViewModel
     private val _isFollowingMap = mutableStateMapOf<String, Boolean>()
     val isFollowingMap: Map<String, Boolean> = _isFollowingMap
 
-    // Main loading state, primarily for search operations
+    // main loading state for search operations
     private val _isLoading = mutableStateOf(false)
     val isLoading: State<Boolean> = _isLoading
 
-    // New: Loading state for individual follow/unfollow actions
+    // loading state for individual follow/unfollow actions
     private val _isTogglingFollowMap = mutableStateMapOf<String, Boolean>()
     val isTogglingFollowMap: Map<String, Boolean> = _isTogglingFollowMap
 
@@ -58,9 +58,9 @@ class SearchUserViewModel( // Renamed from FollowViewModel
     private fun observeSearchQuery() {
         viewModelScope.launch {
             _searchQuery
-                .debounce(300L) // Debounce for 300ms
+                .debounce(300L)     // debounce for 300ms
                 .distinctUntilChanged()
-                .filter { it.isNotBlank() } // Only search if query is not blank
+                .filter { it.isNotBlank() }
                 .collect { query ->
                     searchUsers(query)
                 }
@@ -77,7 +77,7 @@ class SearchUserViewModel( // Renamed from FollowViewModel
                         _isFollowingMap[followingId] = true
                     }
                 }.onFailure { e ->
-                    _errorMessage.value = "Greška pri dohvaćanju statusa praćenja: ${e.message}" // Changed text
+                    _errorMessage.value = "Greška pri dohvaćanju statusa praćenja: ${e.message}"
                 }
             }
         }
@@ -92,19 +92,19 @@ class SearchUserViewModel( // Renamed from FollowViewModel
 
     private fun searchUsers(query: String) {
         viewModelScope.launch {
-            _isLoading.value = true // Set main loading for search
+            _isLoading.value = true
             _errorMessage.value = null
             val result = userRepository.searchUsers(query)
             result.onSuccess { fetchedUsers ->
-                // Filter out the current user from the search results
+                // filter out the current user from the search results
                 _users.clear()
                 _users.addAll(fetchedUsers.filter { it.id != currentUserId })
-                // After fetching users, update their following status
+                // after fetching users, update their following status
                 updateFollowingStatusForUsers(fetchedUsers.map { it.id })
             }.onFailure { e ->
-                _errorMessage.value = "Greška pri pretraživanju korisnika: ${e.message}" // Changed text
+                _errorMessage.value = "Greška pri pretraživanju korisnika: ${e.message}"
             }
-            _isLoading.value = false // Reset main loading after search
+            _isLoading.value = false
         }
     }
 
@@ -116,7 +116,6 @@ class SearchUserViewModel( // Renamed from FollowViewModel
                     result.onSuccess { isFollowing ->
                         _isFollowingMap[targetUserId] = isFollowing
                     }.onFailure { e ->
-                        // Log error but don't block UI
                         println("Error checking following status for $targetUserId: ${e.message}")
                     }
                 }
@@ -127,12 +126,12 @@ class SearchUserViewModel( // Renamed from FollowViewModel
 
     fun toggleFollow(targetUserId: String) {
         val currentLoggedInUserId = currentUserId ?: run {
-            _errorMessage.value = "Korisnik nije prijavljen." // Changed text
+            _errorMessage.value = "Korisnik nije prijavljen."
             return
         }
 
         viewModelScope.launch {
-            _isTogglingFollowMap[targetUserId] = true // Set loading for this specific user
+            _isTogglingFollowMap[targetUserId] = true
             _errorMessage.value = null
             val isCurrentlyFollowing = _isFollowingMap[targetUserId] ?: false
 
@@ -141,17 +140,17 @@ class SearchUserViewModel( // Renamed from FollowViewModel
                 result.onSuccess {
                     _isFollowingMap[targetUserId] = false
                 }.onFailure { e ->
-                    _errorMessage.value = "Greška pri prestanku praćenja: ${e.message}" // Changed text
+                    _errorMessage.value = "Greška pri prestanku praćenja: ${e.message}"
                 }
             } else {
                 val result = followRepository.followUser(currentLoggedInUserId, targetUserId)
                 result.onSuccess {
                     _isFollowingMap[targetUserId] = true
                 }.onFailure { e ->
-                    _errorMessage.value = "Greška pri praćenju: ${e.message}" // Changed text
+                    _errorMessage.value = "Greška pri praćenju: ${e.message}"
                 }
             }
-            _isTogglingFollowMap[targetUserId] = false // Reset loading for this specific user
+            _isTogglingFollowMap[targetUserId] = false
         }
     }
 
@@ -161,9 +160,9 @@ class SearchUserViewModel( // Renamed from FollowViewModel
         private val firebaseAuth: FirebaseAuth
     ) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            if (modelClass.isAssignableFrom(SearchUserViewModel::class.java)) { // Renamed from FollowViewModel
+            if (modelClass.isAssignableFrom(SearchUserViewModel::class.java)) {
                 @Suppress("UNCHECKED_CAST")
-                return SearchUserViewModel(userRepository, followRepository, firebaseAuth) as T // Renamed from FollowViewModel
+                return SearchUserViewModel(userRepository, followRepository, firebaseAuth) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class")
         }

@@ -15,12 +15,11 @@ import com.example.run_app_rma.data.firestore.repository.RunPostRepository
 import com.example.run_app_rma.data.firestore.repository.UserRepository
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.functions.FirebaseFunctions // Import FirebaseFunctions
-import com.google.firebase.functions.functions // Import the extension function
+import com.google.firebase.functions.FirebaseFunctions
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.tasks.await // Import await
+import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.launch
 import java.util.Date
 
@@ -67,27 +66,33 @@ class RunPostViewModel(
     private val _currentUserId = MutableStateFlow<String?>(null)
     val currentUserId: StateFlow<String?> = _currentUserId.asStateFlow()
 
-    // Initialize Firebase Functions instance
+    // initialize firebase functions instance
     private val functions = FirebaseFunctions.getInstance()
 
+    private val authStateListener = FirebaseAuth.AuthStateListener { auth ->
+        val uid = auth.currentUser?.uid
+        _currentUserId.value = uid
+        Log.d(TAG, "Auth state changed. Current User ID: $uid")
+
+        savedStateHandle.get<String>("postId")?.let { postId ->
+            fetchUpdatedLikeAndCommentData(postId)
+        }
+    }
 
     private val TAG = "RunPostViewModel"
 
     init {
-        firebaseAuth.addAuthStateListener { auth ->
-            _currentUserId.value = auth.currentUser?.uid
-            Log.d(TAG, "Auth state changed. Current User ID: ${_currentUserId.value}")
-            savedStateHandle.get<String>("postId")?.let { postId ->
-                if (_currentUserId.value != null && _runPost.value != null) {
-                    fetchUpdatedLikeAndCommentData(postId)
-                }
-            }
-        }
+        firebaseAuth.addAuthStateListener(authStateListener)
 
         savedStateHandle.get<String>("postId")?.let { postId ->
             Log.d(TAG, "Initializing with postId: $postId")
             fetchRunPostAndRelatedData(postId)
         }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        firebaseAuth.removeAuthStateListener(authStateListener)
     }
 
     fun fetchRunPostAndRelatedData(postId: String) {
@@ -121,14 +126,19 @@ class RunPostViewModel(
                                 _likedUsers.value = usersWhoLikedResult.getOrNull() ?: emptyList()
                                 Log.d(TAG, "Fetched Liked Users: ${_likedUsers.value.map { it.displayName }}")
                             } else {
-                                _errorMessage.value = usersWhoLikedResult.exceptionOrNull()?.message ?: "Failed to load users who liked."
+                                _errorMessage.value =
+                                    usersWhoLikedResult.exceptionOrNull()?.message ?: "Failed to load users who liked."
                                 Log.e(TAG, "Error fetching liked users: ${_errorMessage.value}")
                             }
 
                             val currentUserId = firebaseAuth.currentUser?.uid
                             if (currentUserId != null) {
                                 _userLikedPostIds.value = if (likedUserIds.contains(currentUserId)) setOf(postId) else emptySet()
-                                Log.d(TAG, "Current user ($currentUserId) liked status (after initial fetch): ${_userLikedPostIds.value.contains(postId)}")
+                                Log.d(
+                                    TAG,
+                                    "Current user ($currentUserId) liked status (after initial fetch): " +
+                                            "${_userLikedPostIds.value.contains(postId)}"
+                                )
                             }
                         } else {
                             _errorMessage.value = likesResult.exceptionOrNull()?.message ?: "Failed to load likes."
@@ -149,14 +159,14 @@ class RunPostViewModel(
                                 _commentUsers.value = usersWhoCommentedResult.getOrNull()?.associateBy { it.id } ?: emptyMap()
                                 Log.d(TAG, "Fetched Comment Users: ${_commentUsers.value.map { it.value.displayName }}")
                             } else {
-                                _errorMessage.value = usersWhoCommentedResult.exceptionOrNull()?.message ?: "Failed to load comment users."
+                                _errorMessage.value =
+                                    usersWhoCommentedResult.exceptionOrNull()?.message ?: "Failed to load comment users."
                                 Log.e(TAG, "Error fetching comment users: ${_errorMessage.value}")
                             }
                         } else {
                             _errorMessage.value = commentsResult.exceptionOrNull()?.message ?: "Failed to load comments."
                             Log.e(TAG, "Error fetching comments: ${_errorMessage.value}")
                         }
-
                     }
                 } else {
                     _errorMessage.value = postResult.exceptionOrNull()?.message ?: "Run post not found."
@@ -168,7 +178,11 @@ class RunPostViewModel(
             } finally {
                 _isInitialLoading.value = false
                 _isRefreshing.value = false
-                Log.d(TAG, "Finished fetching data. isInitialLoading: ${_isInitialLoading.value}, isRefreshing: ${_isRefreshing.value}")
+                Log.d(
+                    TAG,
+                    "Finished fetching data. isInitialLoading: ${_isInitialLoading.value}, " +
+                            "isRefreshing: ${_isRefreshing.value}"
+                )
             }
         }
     }
@@ -179,7 +193,11 @@ class RunPostViewModel(
             Log.w(TAG, "User not logged in, cannot toggle like.")
             return
         }
-        Log.d(TAG, "toggleLike: BEFORE optimistic update. userLikedPostIds.value: ${_userLikedPostIds.value}, isCurrentlyLiked (from UI): $isCurrentlyLiked")
+        Log.d(
+            TAG,
+            "toggleLike: BEFORE optimistic update. userLikedPostIds.value: ${_userLikedPostIds.value}, " +
+                    "isCurrentlyLiked (from UI): $isCurrentlyLiked"
+        )
 
         _isLoadingAction.value = true
         _errorMessage.value = null
@@ -190,7 +208,11 @@ class RunPostViewModel(
         } else {
             _userLikedPostIds.value.plus(postId)
         }
-        Log.d(TAG, "toggleLike: AFTER optimistic update. userLikedPostIds.value: ${_userLikedPostIds.value}. UI icon should now reflect this.")
+        Log.d(
+            TAG,
+            "toggleLike: AFTER optimistic update. userLikedPostIds.value: ${_userLikedPostIds.value}. " +
+                    "UI icon should now reflect this."
+        )
 
         viewModelScope.launch {
             try {
@@ -269,7 +291,6 @@ class RunPostViewModel(
         }
     }
 
-    // UPDATED: Now calls a Callable Cloud Function
     fun deleteComment(commentId: String) {
         val currentUserId = firebaseAuth.currentUser?.uid ?: run {
             _errorMessage.value = "You must be logged in to delete comments."
@@ -285,7 +306,7 @@ class RunPostViewModel(
         Log.d(TAG, "Attempting to call deleteCommentCallable for comment $commentId for post $postId by user $currentUserId")
 
         _isLoadingAction.value = true
-        _errorMessage.value = null // Clear any existing error messages
+        _errorMessage.value = null      // clear any existing error messages
 
         viewModelScope.launch {
             try {
@@ -293,22 +314,26 @@ class RunPostViewModel(
                     "commentId" to commentId,
                     "postId" to postId
                 )
-                // Call the Callable Cloud Function
+                // call the callable cloud function
                 val result = functions
                     .getHttpsCallable("deleteCommentCallable")
                     .call(data)
                     .await()
 
-                // Callable functions return data in 'result.data'
-                val response = result.data as? Map<String, Any>
+                // callable functions return data in 'result.data'
+                val response = result.data as? Map<*, *>
                 val success = response?.get("success") as? Boolean ?: false
                 val notificationSent = response?.get("notificationSent") as? Boolean
                 val reason = response?.get("reason") as? String
-                val errorDetails = response?.get("error") // Can be an object if passed
+                val errorDetails = response?.get("error")
 
                 if (success) {
-                    Log.d(TAG, "Comment deletion callable returned success. Notification sent: $notificationSent. Reason: $reason")
-                    fetchUpdatedLikeAndCommentData(postId) // Refresh UI after successful deletion
+                    Log.d(
+                        TAG,
+                        "Comment deletion callable returned success. " +
+                                "Notification sent: $notificationSent. Reason: $reason"
+                    )
+                    fetchUpdatedLikeAndCommentData(postId)      // refresh UI after successful deletion
                 } else {
                     val msg = "Failed to delete comment via callable: ${reason ?: "Unknown reason"}"
                     _errorMessage.value = msg
@@ -413,11 +438,6 @@ class RunPostViewModel(
                 Log.e(TAG, "Error refreshing comments after action: ${e.message}")
             }
         }
-    }
-
-    override fun onCleared() {
-        super.onCleared()
-        firebaseAuth.removeAuthStateListener {  }
     }
 
     companion object {

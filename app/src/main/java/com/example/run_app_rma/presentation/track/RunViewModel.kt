@@ -3,19 +3,21 @@ package com.example.run_app_rma.presentation.track
 import android.app.Application
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.location.Location
 import android.util.Log
 import androidx.compose.runtime.mutableStateOf
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import android.Manifest
 import com.example.run_app_rma.data.dao.LocationDao
 import com.example.run_app_rma.data.dao.RunDao
 import com.example.run_app_rma.data.dao.SensorDao
 import com.example.run_app_rma.domain.model.LocationDataEntity
 import com.example.run_app_rma.domain.model.RunEntity
-import com.example.run_app_rma.domain.model.SensorDataEntity
 import com.example.run_app_rma.domain.model.SensorType
 import com.example.run_app_rma.sensor.tracking.LocationService
 import com.example.run_app_rma.sensor.tracking.SensorService
@@ -46,24 +48,34 @@ class RunViewModel(
     val liveSensorData = mutableStateOf("Steps: N/A")
 
     init {
-        locationService.startLocationUpdates { location ->
-            liveLocationData.value = "Lat: ${location.latitude}, Lng: ${location.longitude}"
+        if (ContextCompat.checkSelfPermission(getApplication(), Manifest.permission.ACCESS_FINE_LOCATION)
+            == PackageManager.PERMISSION_GRANTED
+        ) {
+            try {
+                locationService.startLocationUpdates { location ->
+                    liveLocationData.value = "Lat: ${location.latitude}, Lng: ${location.longitude}"
 
-            if (_isTracking.value && _currentRunId.value != null) {
-                currentRunLocations.add(location)
-                viewModelScope.launch {
-                    val locationEntity = LocationDataEntity(
-                        runId = _currentRunId.value!!,
-                        timestamp = System.currentTimeMillis(),
-                        sensorType = SensorType.GPS,
-                        lat = location.latitude,
-                        lon = location.longitude,
-                        alt = location.altitude,
-                        speed = location.speed
-                    )
-                    locationDao.insertLocationData(locationEntity)
+                    if (_isTracking.value && _currentRunId.value != null) {
+                        currentRunLocations.add(location)
+                        viewModelScope.launch {
+                            val locationEntity = LocationDataEntity(
+                                runId = _currentRunId.value!!,
+                                timestamp = System.currentTimeMillis(),
+                                sensorType = SensorType.GPS,
+                                lat = location.latitude,
+                                lon = location.longitude,
+                                alt = location.altitude,
+                                speed = location.speed
+                            )
+                            locationDao.insertLocationData(locationEntity)
+                        }
+                    }
                 }
+            } catch (e: SecurityException) {
+                Log.e("Location", "Location permission not granted: ${e.message}")
             }
+        } else {
+            Log.w("Location", "Location permission not granted")
         }
         // Sensor tracking is handled by the SensorService
         ShortcutManager.updateShortcuts(application.applicationContext, false)
@@ -108,7 +120,7 @@ class RunViewModel(
         viewModelScope.launch {
             val runId = _currentRunId.value!!
 
-            // Stop SensorService
+            // stop SensorService
             val sensorServiceIntent = Intent(getApplication(), SensorService::class.java).apply {
                 action = SensorService.ACTION_STOP_FOREGROUND_SERVICE
             }
