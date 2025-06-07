@@ -52,6 +52,7 @@ dependencies {
 
     implementation(libs.firebase.storage.ktx)
     implementation(libs.androidx.navigation.compose.android)
+    implementation(libs.google.firebase.functions.ktx)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.ui.test.junit4)
@@ -82,7 +83,7 @@ dependencies {
     implementation(libs.androidx.foundation) // Za HorizontalPager
     implementation(libs.androidx.foundation.layout) // Za HorizontalPager
     implementation(libs.ui.tooling.preview) // Za Preview
-    implementation(libs.androidx.lifecycle.viewmodel.compose.v270) // Provjeri najnoviju verziju ako je potrebno
+    implementation(libs.androidx.lifecycle.viewmodel.compose.v270)
     implementation(libs.coil.compose) // Za učitavanje slika s URL-a (profilna slika)
 
     implementation(libs.maps.compose)
@@ -97,5 +98,5 @@ dependencies {
 
     implementation(libs.google.firebase.messaging.ktx)
 
-    implementation(libs.accompanist.swiperefresh) // Check for the latest version
+    implementation(libs.accompanist.swiperefresh)
 }
