@@ -22,6 +22,8 @@ import com.example.run_app_rma.domain.model.SensorType
 import com.example.run_app_rma.sensor.tracking.LocationService
 import com.example.run_app_rma.sensor.tracking.SensorService
 import com.example.run_app_rma.services.ShortcutManager
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -41,11 +43,18 @@ class RunViewModel(
     private val _currentRunId = MutableStateFlow<Long?>(null)
     val currentRunId: StateFlow<Long?> = _currentRunId
 
+    private val _elapsedTime = MutableStateFlow(0L)
+    val elapsedTime: StateFlow<Long> = _elapsedTime
+
+    private val _distanceMeters = MutableStateFlow(0f)
+    val distanceMeters: StateFlow<Float> = _distanceMeters
+
     private var currentRunStartTime: Long = 0L
     private var currentRunLocations = mutableListOf<Location>()
+    private var timerJob: Job? = null
 
     val liveLocationData = mutableStateOf("Lat: N/A, Lng: N/A")
-    val liveSensorData = mutableStateOf("Steps: N/A")
+    private val liveSensorData = mutableStateOf("Steps: N/A")
 
     init {
         if (ContextCompat.checkSelfPermission(getApplication(), Manifest.permission.ACCESS_FINE_LOCATION)
@@ -57,6 +66,14 @@ class RunViewModel(
 
                     if (_isTracking.value && _currentRunId.value != null) {
                         currentRunLocations.add(location)
+
+                        if (currentRunLocations.size >= 2) {
+                            val last = currentRunLocations[currentRunLocations.size - 2]
+                            val current = currentRunLocations.last()
+                            val added = last.distanceTo(current)
+                            _distanceMeters.value += added
+                        }
+
                         viewModelScope.launch {
                             val locationEntity = LocationDataEntity(
                                 runId = _currentRunId.value!!,
@@ -77,7 +94,7 @@ class RunViewModel(
         } else {
             Log.w("Location", "Location permission not granted")
         }
-        // Sensor tracking is handled by the SensorService
+        // sensor tracking is handled by the SensorService
         ShortcutManager.updateShortcuts(application.applicationContext, false)
     }
 
@@ -90,6 +107,8 @@ class RunViewModel(
         currentRunLocations.clear()
 
         viewModelScope.launch {
+            startElapsedTimeUpdater()
+
             val newRun = RunEntity(
                 startTime = currentRunStartTime,
                 endTime = null,
@@ -104,14 +123,29 @@ class RunViewModel(
             val sensorServiceIntent = Intent(getApplication(), SensorService::class.java).apply {
                 action = SensorService.ACTION_START_FOREGROUND_SERVICE
                 putExtra(SensorService.EXTRA_RUN_ID, runId)
+                putExtra(SensorService.EXTRA_RUN_START_TIME, currentRunStartTime)
+                putExtra(SensorService.EXTRA_INITIAL_DISTANCE, 0f)
             }
             getApplication<Application>().startForegroundService(sensorServiceIntent)
             Log.d("RunViewModel", "SensorService started.")
         }
     }
 
+    private fun startElapsedTimeUpdater() {
+        timerJob?.cancel()
+        timerJob = viewModelScope.launch {
+            while (isTracking.value) {
+                val elapsed = System.currentTimeMillis() - currentRunStartTime
+                _elapsedTime.value = elapsed
+                delay(1000)
+            }
+        }
+    }
+
     fun stopRun() {
         if (!_isTracking.value || _currentRunId.value == null) return
+
+        timerJob?.cancel()
 
         val endTime = System.currentTimeMillis()
         _isTracking.value = false
@@ -162,23 +196,25 @@ class RunViewModel(
         locationService.stopLocationUpdates()
     }
 
-    fun exportDatabase(context: Context) {
-        val dbName = "run_app_database"
-        val dbPath = context.getDatabasePath(dbName)
-        val destDir = context.getExternalFilesDir(null)
-        val destDb = File(destDir, dbName)
-        val walFile = File(dbPath.absolutePath + "-wal")
-        val shmFile = File(dbPath.absolutePath + "-shm")
-
-        try {
-            dbPath.copyTo(destDb, overwrite = true)
-            walFile.copyTo(File(destDir, walFile.name), overwrite = true)
-            shmFile.copyTo(File(destDir, shmFile.name), overwrite = true)
-            Log.d("DB_EXPORT", "Exported DB to ${destDb.absolutePath}")
-        } catch (e: Exception) {
-            Log.e("DB_EXPORT", "Error exporting DB", e)
-        }
-    }
+    // debug
+//    fun exportDatabase(context: Context) {
+//        val dbName = "run_app_database"
+//        val dbPath = context.getDatabasePath(dbName)
+//        val destDir = context.getExternalFilesDir(null)
+//        val destDb = File(destDir, dbName)
+//        val walFile = File(dbPath.absolutePath + "-wal")
+//        val shmFile = File(dbPath.absolutePath + "-shm")
+//
+//        try {
+//            dbPath.copyTo(destDb, overwrite = true)
+//            walFile.copyTo(File(destDir, walFile.name), overwrite = true)
+//            shmFile.copyTo(File(destDir, shmFile.name), overwrite = true)
+//            Log.d("DB_EXPORT", "Exported DB to ${destDb.absolutePath}")
+//        } catch (e: Exception) {
+//            Log.e("DB_EXPORT", "Error exporting DB", e)
+//        }
+//    }
+    //***
 
     class Factory(
         private val application: Application,

@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.example.run_app_rma.sensor.tracking.StepCountManager
 
 @Composable
 fun RunningScreen(
@@ -26,10 +27,13 @@ fun RunningScreen(
 ) {
     val isTracking by runViewModel.isTracking.collectAsState()
     val locationText by runViewModel.liveLocationData
-    val sensorText by runViewModel.liveSensorData
+//    val sensorText by runViewModel.liveSensorData
+    val stepCount by StepCountManager.liveStepCount.collectAsState()
+    val elapsedTime by runViewModel.elapsedTime.collectAsState()
+    val distanceMeters by runViewModel.distanceMeters.collectAsState()
 
     // debug
-    val context = LocalContext.current
+//    val context = LocalContext.current
     //***
 
 
@@ -41,10 +45,19 @@ fun RunningScreen(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(text = locationText)
-
         Spacer(modifier = Modifier.height(24.dp))
 
-        Text(text = sensorText)
+        Text(text = "Steps: $stepCount")
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Text(
+            text = "Elapsed: ${elapsedTime / 1000 / 60}m ${(elapsedTime / 1000) % 60}s"
+        )
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Text(
+            text = "Distance: ${"%.2f".format(distanceMeters / 1000)} km"
+        )
         Spacer(modifier = Modifier.height(24.dp))
 
         if(!isTracking) {
@@ -65,14 +78,14 @@ fun RunningScreen(
         }
 
         // debug
-        Button(
-            onClick = { runViewModel.exportDatabase(context) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 16.dp)
-        ) {
-            Text("Export DB")
-        }
+//        Button(
+//            onClick = { runViewModel.exportDatabase(context) },
+//            modifier = Modifier
+//                .fillMaxWidth()
+//                .padding(top = 16.dp)
+//        ) {
+//            Text("Export DB")
+//        }
         //***
     }
 }

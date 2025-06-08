@@ -35,7 +35,7 @@ class FeedWidgetItemFactory(
     private val dateFormat = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
 
     override fun onCreate() {
-        // Initialize data
+        //
     }
 
     override fun onDataSetChanged() {
@@ -70,7 +70,7 @@ class FeedWidgetItemFactory(
     }
 
     override fun onDestroy() {
-        // Clean up
+        //
     }
 
     override fun getCount(): Int = posts.size
@@ -98,7 +98,7 @@ class FeedWidgetItemFactory(
                     String.format(Locale.getDefault(), "%02d:%02d", hours, minutes)
                 }
 
-                // Format distance to 2 decimal places
+                // format distance to 2 decimal places
                 val distanceKm = String.format(Locale.getDefault(), "%.2f", post.distance / 1000.0)
                 
                 val postText = "${user?.displayName ?: "User"}: ${distanceKm}km in $durationText"

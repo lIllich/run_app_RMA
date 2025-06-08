@@ -148,6 +148,7 @@ class MainActivity : ComponentActivity() {
             arrayOf(
                 android.Manifest.permission.ACCESS_FINE_LOCATION,
                 android.Manifest.permission.ACCESS_COARSE_LOCATION,
+                android.Manifest.permission.ACCESS_BACKGROUND_LOCATION,
                 android.Manifest.permission.CAMERA,
                 android.Manifest.permission.READ_MEDIA_IMAGES,
                 android.Manifest.permission.ACTIVITY_RECOGNITION,

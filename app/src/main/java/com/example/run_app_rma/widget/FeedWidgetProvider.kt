@@ -39,12 +39,12 @@ class FeedWidgetProvider : AppWidgetProvider() {
     ) {
         val views = RemoteViews(context.packageName, R.layout.feed_widget)
         
-        // Set up the intent for the ListView's adapter
+        // set up the intent for the ListView's adapter
         val intent = Intent(context, FeedWidgetService::class.java)
         intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
         views.setRemoteAdapter(R.id.widget_list, intent)
         
-        // Set up the intent for clicking on items
+        // set up the intent for clicking on items
         val clickIntent = Intent(context, MainActivity::class.java)
         val clickPendingIntent = PendingIntent.getActivity(
             context,
@@ -54,17 +54,17 @@ class FeedWidgetProvider : AppWidgetProvider() {
         )
         views.setPendingIntentTemplate(R.id.widget_list, clickPendingIntent)
         
-        // Update the widget
+        // update the widget
         appWidgetManager.updateAppWidget(appWidgetId, views)
         appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.widget_list)
     }
 
     override fun onEnabled(context: Context) {
-        // No longer need to register a receiver here
+        // no longer needed
     }
 
     override fun onDisabled(context: Context) {
-        // No longer need to unregister a receiver here
+        // no longer needed
     }
 
     companion object {
