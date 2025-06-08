@@ -4,7 +4,7 @@ import com.google.firebase.firestore.ServerTimestamp
 import java.util.Date
 
 data class User(
-    val id: String = "",                        // firebase document id for the user, explicitly stored as a field
+    val id: String = "",
     val displayName: String = "",
     val lowercaseDisplayName: String = "",
     val email: String = "",
@@ -13,6 +13,11 @@ data class User(
     val totalRuns: Int = 0,
     val age: Int? = null,
     val lastRunTimestamp: Long? = null,
-    val fcmToken: String? = null,               // FCM registration token
-    @ServerTimestamp val createdAt: Date? = null
+    val fcmToken: String? = null,
+    @ServerTimestamp val createdAt: Date? = null,
+    // New fields for weekly goals
+    val weeklyGoalSteps: Int? = null,
+    val weeklyGoalDuration: Long? = null, // in milliseconds
+    val weeklyGoalDistance: Float? = null, // in meters
+    val weeklyGoalsSetTimestamp: Long? = null // Timestamp when goals were last set
 )
