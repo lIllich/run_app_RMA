@@ -204,6 +204,7 @@ class MainActivity : ComponentActivity() {
                                     appDatabase.runDao(),
                                     appDatabase.locationDao(),
                                     appDatabase.sensorDao(),
+                                    appDatabase.challengeDao(),
                                     locationService
                                 )
                             )

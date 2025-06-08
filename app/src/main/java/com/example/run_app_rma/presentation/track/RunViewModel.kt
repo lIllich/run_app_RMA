@@ -12,9 +12,11 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.run_app_rma.data.dao.ChallengeDao
 import com.example.run_app_rma.data.dao.LocationDao
 import com.example.run_app_rma.data.dao.RunDao
 import com.example.run_app_rma.data.dao.SensorDao
+import com.example.run_app_rma.domain.challenges.ChallengeUpdater
 import com.example.run_app_rma.domain.model.LocationDataEntity
 import com.example.run_app_rma.domain.model.RunEntity
 import com.example.run_app_rma.domain.model.SensorType
@@ -32,7 +34,8 @@ class RunViewModel(
     private val runDao: RunDao,
     private val locationDao: LocationDao,
     private val sensorDao: SensorDao,
-    private val locationService: LocationService
+    private val locationService: LocationService,
+    private val challengeUpdater: ChallengeUpdater
 ) : AndroidViewModel(application) {
 
     private val _isTracking = MutableStateFlow(false)
@@ -200,15 +203,20 @@ class RunViewModel(
             runDao.update(updatedRun)
             Log.d("RunViewModel", "Run with ID $runId updated. Final steps: $totalStepsForRun")
 
-            // signal UI to start flashing data
+            // --- MERGED LOGIC ---
+            // 1. Update challenges first (from your branch)
+            challengeUpdater.updateChallengesAfterRun(updatedRun)
+
+            // 2. Then, trigger UI flashing and reset (from main)
             _runFinished.value = true
 
-            // launch flashing coroutine to keep final data visible (flashing) for 5 seconds, then reset
+            // Launch flashing coroutine to keep final data visible (flashing) for 5 seconds, then reset
             flashJob?.cancel()
             flashJob = viewModelScope.launch {
                 delay(5000)
                 resetRunData()
             }
+            // --- END MERGED LOGIC ---
 
             _currentRunId.value = null
         }
@@ -235,6 +243,7 @@ class RunViewModel(
         private val runDao: RunDao,
         private val locationDao: LocationDao,
         private val sensorDao: SensorDao,
+        private val challengeDao: ChallengeDao,
         private val locationService: LocationService
     ) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -245,7 +254,8 @@ class RunViewModel(
                     runDao,
                     locationDao,
                     sensorDao,
-                    locationService
+                    locationService,
+                    ChallengeUpdater(challengeDao, runDao, locationDao)
                 ) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class")

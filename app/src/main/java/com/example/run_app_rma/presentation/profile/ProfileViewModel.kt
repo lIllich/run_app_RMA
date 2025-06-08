@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.run_app_rma.data.dao.ChallengeDao
 import com.example.run_app_rma.data.firestore.model.RunPost
 import com.example.run_app_rma.data.firestore.model.User
 import com.example.run_app_rma.data.firestore.repository.FollowRepository
@@ -14,6 +15,8 @@ import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import java.util.Calendar
 import java.util.concurrent.TimeUnit
@@ -23,7 +26,8 @@ class ProfileViewModel(
     private val firebaseAuth: FirebaseAuth,
     private val authRepository: AuthRepository,
     private val runPostRepository: RunPostRepository,
-    private val followRepository: FollowRepository
+    private val followRepository: FollowRepository,
+    private val challengeDao: ChallengeDao
 ) : ViewModel() {
 
     private val _currentUser = MutableStateFlow<User?>(null)
@@ -44,21 +48,33 @@ class ProfileViewModel(
     private val _postCount = MutableStateFlow(0)
     val postCount: StateFlow<Int> = _postCount.asStateFlow()
 
-    // New StateFlows for weekly goal progress percentages (0-100)
+    // --- MERGED STATE FLOWS ---
+    // From your branch for titles
+    private val _unlockedTitles = MutableStateFlow<List<String>>(emptyList())
+    val unlockedTitles: StateFlow<List<String>> = _unlockedTitles.asStateFlow()
+    // From main branch for weekly goals
     private val _weeklyStepsProgress = MutableStateFlow<Float?>(null)
     val weeklyStepsProgress: StateFlow<Float?> = _weeklyStepsProgress.asStateFlow()
-
     private val _weeklyDurationProgress = MutableStateFlow<Float?>(null)
     val weeklyDurationProgress: StateFlow<Float?> = _weeklyDurationProgress.asStateFlow()
-
     private val _weeklyDistanceProgress = MutableStateFlow<Float?>(null)
     val weeklyDistanceProgress: StateFlow<Float?> = _weeklyDistanceProgress.asStateFlow()
+    // --- END MERGED STATE FLOWS ---
 
     private val TAG = "ProfileViewModel"
 
     init {
         // Fetch user profile and counts when the ViewModel is initialized
         fetchUserProfileAndCounts()
+        observeUnlockedTitles() // From your branch
+    }
+
+    private fun observeUnlockedTitles() {
+        challengeDao.getUnlockedTitles()
+            .onEach { titles ->
+                _unlockedTitles.value = titles
+            }
+            .launchIn(viewModelScope)
     }
 
     /**
@@ -75,9 +91,10 @@ class ProfileViewModel(
             _followingCount.value = 0
             _followersCount.value = 0
             _postCount.value = 0
-            _weeklyStepsProgress.value = null
-            _weeklyDurationProgress.value = null
-            _weeklyDistanceProgress.value = null
+            _weeklyStepsProgress.value = null // From main
+            _weeklyDurationProgress.value = null // From main
+            _weeklyDistanceProgress.value = null // From main
+            _unlockedTitles.value = emptyList() // From your branch
             Log.d(TAG, "fetchUserProfileAndCounts called but currentUserId is null. User not authenticated.")
             return
         }
@@ -92,7 +109,7 @@ class ProfileViewModel(
                     _currentUser.value = userResult.getOrNull()
                     // After successfully fetching user, calculate weekly progress
                     _currentUser.value?.let { user ->
-                        calculateWeeklyProgress(user)
+                        calculateWeeklyProgress(user) // From main
                     }
                 } else {
                     _errorMessage.value = userResult.exceptionOrNull()?.message ?: "Failed to load profile."
@@ -150,21 +167,16 @@ class ProfileViewModel(
             val weeklyGoalDistance = user.weeklyGoalDistance // in meters
             val goalsSetTimestamp = user.weeklyGoalsSetTimestamp
 
-            // If no goals are set, reset progress to null
             if (weeklyGoalSteps == null && weeklyGoalDuration == null && weeklyGoalDistance == null) {
                 _weeklyStepsProgress.value = null
                 _weeklyDurationProgress.value = null
                 _weeklyDistanceProgress.value = null
                 Log.d(TAG, "No weekly goals set for user $userId.")
-                return@launch // Use return@launch to exit the coroutine lambda
+                return@launch
             }
 
-            // Get the timestamp for the start of the current week (Monday 00:00:00)
             val currentWeekStart = getStartOfWeekTimestamp()
 
-            // If goals were set before the current week, consider them expired for display purposes
-            // and show 0% progress. A more robust solution might involve server-side logic
-            // or specific weekly goal documents.
             if (goalsSetTimestamp != null && goalsSetTimestamp < currentWeekStart) {
                 _weeklyStepsProgress.value = 0f
                 _weeklyDurationProgress.value = 0f
@@ -173,33 +185,25 @@ class ProfileViewModel(
                 return@launch
             }
 
-            // Fetch all run posts for the user to calculate current week's activity
             val userPostsResult = runPostRepository.getRunPostsByUsers(listOf(userId))
             if (userPostsResult.isSuccess) {
-                // Filter posts that occurred within the current week
                 val weeklyRuns = userPostsResult.getOrNull()?.filter { runPost: RunPost ->
-                    // Ensure runPost.timestamp is not null and is within the current week
                     runPost.timestamp != null && runPost.timestamp.time >= currentWeekStart
                 } ?: emptyList()
 
-                var totalWeeklyDistance = 0f // in meters
-                var totalWeeklyDuration = 0L // in milliseconds
+                var totalWeeklyDistance = 0f
+                var totalWeeklyDuration = 0L
                 var totalWeeklySteps = 0
 
-                // Aggregate data from weekly runs
                 weeklyRuns.forEach { runPost ->
                     totalWeeklyDistance += runPost.distance
                     totalWeeklyDuration += (runPost.endTime - runPost.startTime)
-                    // Placeholder for step estimation:
-                    // Ideally, your RunPost data model would include actual step count.
-                    // If not, you can estimate based on distance or average pace.
                     totalWeeklySteps += estimateStepsFromDistance(runPost.distance)
                 }
 
-                // Calculate and update progress percentages
                 _weeklyStepsProgress.value = weeklyGoalSteps?.let {
                     if (it > 0) (totalWeeklySteps.toFloat() / it) * 100f else 0f
-                } ?: 0f // If goal is null or zero, progress is 0%
+                } ?: 0f
 
                 _weeklyDurationProgress.value = weeklyGoalDuration?.let {
                     if (it > 0) (totalWeeklyDuration.toFloat() / it) * 100f else 0f
@@ -213,7 +217,6 @@ class ProfileViewModel(
 
             } else {
                 Log.e(TAG, "Error fetching user posts for weekly progress: ${userPostsResult.exceptionOrNull()?.message}")
-                // Reset progress if there's an error fetching posts
                 _weeklyStepsProgress.value = 0f
                 _weeklyDurationProgress.value = 0f
                 _weeklyDistanceProgress.value = 0f
@@ -221,22 +224,14 @@ class ProfileViewModel(
         }
     }
 
-    /**
-     * Estimates steps based on distance. This is a placeholder.
-     * Replace with actual step data from your RunPost if available.
-     * Assumes roughly 1.3 steps per meter.
-     */
     private fun estimateStepsFromDistance(distanceInMeters: Float): Int {
         return (distanceInMeters * 1.3).toInt()
     }
 
-    /**
-     * Returns the timestamp (in milliseconds) for the start of the current week (Monday 00:00:00).
-     */
     private fun getStartOfWeekTimestamp(): Long {
         val calendar = Calendar.getInstance()
-        calendar.firstDayOfWeek = Calendar.MONDAY // Set Monday as the first day of the week
-        calendar.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY) // Set to Monday of the current week
+        calendar.firstDayOfWeek = Calendar.MONDAY
+        calendar.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
         calendar.set(Calendar.HOUR_OF_DAY, 0)
         calendar.set(Calendar.MINUTE, 0)
         calendar.set(Calendar.SECOND, 0)
@@ -244,11 +239,6 @@ class ProfileViewModel(
         return calendar.timeInMillis
     }
 
-
-    /**
-     * Triggers the recalculation and saving of totalDistanceRun for the current user.
-     * This function should only be called by authorized users/logic.
-     */
     fun recalculateDistances() {
         val userId = firebaseAuth.currentUser?.uid
         if (userId == null) {
@@ -257,8 +247,7 @@ class ProfileViewModel(
             return
         }
 
-        // only allow specific user to run this for now (consider making this dynamic for admin roles)
-        if (userId != "2MKIn3Un7HevvAAROb4z3cWaxFy2") { // IMPORTANT: Replace with actual admin ID or proper authorization
+        if (userId != "2MKIn3Un7HevvAAROb4z3cWaxFy2") {
             _errorMessage.value = "You do not have permission to perform this action."
             Log.w(TAG, "Unauthorized user $userId attempted to recalculate distances.")
             return
@@ -272,7 +261,7 @@ class ProfileViewModel(
             result.onSuccess {
                 Log.d(TAG, "Total distance recalculated successfully for user $userId.")
                 _errorMessage.value = "Uspješno preračunata ukupna udaljenost."
-                fetchUserProfileAndCounts() // Refresh the UI to show the new value and recalculate weekly progress
+                fetchUserProfileAndCounts()
             }.onFailure { e ->
                 _errorMessage.value = "Greška pri preračunavanju udaljenosti: ${e.message}"
                 Log.e(TAG, "Failed to recalculate totalDistanceRun for user $userId: ${e.message}", e)
@@ -281,14 +270,6 @@ class ProfileViewModel(
         }
     }
 
-    /**
-     * Sets the weekly goals for the current user in Firestore.
-     * It updates the user's document with the new goals and a timestamp.
-     *
-     * @param steps The target number of steps for the week. Null if not set.
-     * @param durationMinutes The target duration of running in minutes for the week. Null if not set.
-     * @param distanceKm The target distance of running in kilometers for the week. Null if not set.
-     */
     fun setWeeklyGoals(steps: Int?, durationMinutes: Int?, distanceKm: Float?) {
         val userId = firebaseAuth.currentUser?.uid
         if (userId == null) {
@@ -301,9 +282,8 @@ class ProfileViewModel(
         _errorMessage.value = null
         viewModelScope.launch {
             try {
-                // Convert duration to milliseconds and distance to meters for storage
                 val durationMillis = durationMinutes?.let { TimeUnit.MINUTES.toMillis(it.toLong()) }
-                val distanceMeters = distanceKm?.let { it * 1000f } // Convert km to meters
+                val distanceMeters = distanceKm?.let { it * 1000f }
 
                 val result = userRepository.updateWeeklyGoals(
                     userId,
@@ -314,7 +294,7 @@ class ProfileViewModel(
                 result.onSuccess {
                     Log.d(TAG, "Weekly goals set successfully for user $userId. Steps: $steps, Duration: $durationMinutes min, Distance: $distanceKm km")
                     _errorMessage.value = "Tjedni ciljevi uspješno postavljeni."
-                    fetchUserProfileAndCounts() // Refresh profile and recalculate progress with new goals
+                    fetchUserProfileAndCounts()
                 }.onFailure { e ->
                     _errorMessage.value = "Greška pri postavljanju tjednih ciljeva: ${e.message}"
                     Log.e(TAG, "Failed to set weekly goals for user $userId: ${e.message}", e)
@@ -338,29 +318,26 @@ class ProfileViewModel(
         _followingCount.value = 0
         _followersCount.value = 0
         _postCount.value = 0
-        _weeklyStepsProgress.value = null
-        _weeklyDurationProgress.value = null
-        _weeklyDistanceProgress.value = null
+        // --- MERGED LOGOUT LOGIC ---
+        _unlockedTitles.value = emptyList() // From your branch
+        _weeklyStepsProgress.value = null // From main
+        _weeklyDurationProgress.value = null // From main
+        _weeklyDistanceProgress.value = null // From main
         Log.d(TAG, "User logged out. ViewModel state cleared.")
+        // --- END MERGED LOGOUT LOGIC ---
     }
 
-    /**
-     * Clears the current error message.
-     */
     fun clearMessages() {
         _errorMessage.value = null
     }
 
-    /**
-     * Factory for creating instances of ProfileViewModel.
-     * This allows for dependency injection of repositories and Firebase components.
-     */
     class Factory(
         private val userRepository: UserRepository,
         private val firebaseAuth: FirebaseAuth,
         private val authRepository: AuthRepository,
         private val runPostRepository: RunPostRepository,
-        private val followRepository: FollowRepository
+        private val followRepository: FollowRepository,
+        private val challengeDao: ChallengeDao
     ) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(ProfileViewModel::class.java)) {
@@ -370,7 +347,8 @@ class ProfileViewModel(
                     firebaseAuth,
                     authRepository,
                     runPostRepository,
-                    followRepository
+                    followRepository,
+                    challengeDao
                 ) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class")

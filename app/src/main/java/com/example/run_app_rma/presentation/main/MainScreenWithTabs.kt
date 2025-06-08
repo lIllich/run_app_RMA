@@ -8,23 +8,27 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.DynamicFeed
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ScrollableTabRow // Kept from original
 import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.dp // Kept from original
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.run_app_rma.data.firestore.repository.FollowRepository
 import com.example.run_app_rma.data.firestore.repository.RunPostRepository
 import com.example.run_app_rma.data.firestore.repository.UserRepository
 import com.example.run_app_rma.data.remote.AuthRepository
+import com.example.run_app_rma.presentation.challenges.ChallengeViewModel // From new code
+import com.example.run_app_rma.presentation.challenges.ChallengesScreen // From new code
 import com.example.run_app_rma.presentation.feed.FeedScreen
 import com.example.run_app_rma.presentation.feed.FeedViewModel
 import com.example.run_app_rma.presentation.profile.ProfileScreen
@@ -39,10 +43,12 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 
+// Merged TabScreen enum with the new "CHALLENGES" entry
 enum class TabScreen(val title: String, val icon: ImageVector) {
     FEED("Feed", Icons.Default.DynamicFeed),
     SEARCH("Traži", Icons.Default.Search),
     RUNNING("Trčanje", Icons.AutoMirrored.Filled.DirectionsRun),
+    CHALLENGES("Izazovi", Icons.Default.EmojiEvents),
     PUBLISH("Objavi", Icons.Default.ArrowUpward),
     PROFILE("Profil", Icons.Default.AccountCircle)
 }
@@ -66,19 +72,21 @@ fun MainScreenWithTabs(
     onPostClick: (String) -> Unit,
     onRunClick: (Long) -> Unit
 ) {
-    // set initial page to feed
+    // Pager state now correctly reflects the size of the updated enum
     val pagerState = rememberPagerState(initialPage = TabScreen.FEED.ordinal) {
         TabScreen.entries.size
     }
     val scope = rememberCoroutineScope()
 
+    // ProfileViewModel factory updated with challengeDao from the new code
     val profileViewModel: ProfileViewModel = viewModel(
         factory = ProfileViewModel.Factory(
             userRepository = userRepository,
             firebaseAuth = firebaseAuth,
             authRepository = authRepository,
             runPostRepository = runPostRepository,
-            followRepository = FollowRepository(FirebaseFirestore.getInstance())
+            followRepository = FollowRepository(FirebaseFirestore.getInstance()),
+            challengeDao = appDatabase.challengeDao()
         )
     )
 
@@ -99,6 +107,13 @@ fun MainScreenWithTabs(
         )
     )
 
+    // Added the new ChallengeViewModel
+    val challengeViewModel: ChallengeViewModel = viewModel(
+        factory = ChallengeViewModel.Factory(
+            challengeDao = appDatabase.challengeDao()
+        )
+    )
+
     val feedViewModel: FeedViewModel = viewModel(
         factory = FeedViewModel.Factory(
             application = application,
@@ -109,20 +124,23 @@ fun MainScreenWithTabs(
         )
     )
 
-    // observe changes in the selected tab and refresh data accordingly
+    // LaunchedEffect updated to handle the new CHALLENGES tab
     LaunchedEffect(pagerState.currentPage) {
         when (TabScreen.entries[pagerState.currentPage]) {
-            TabScreen.FEED -> feedViewModel.loadFeedPosts() // load posts when feed tab is selected
+            TabScreen.FEED -> feedViewModel.loadFeedPosts()
             TabScreen.PROFILE -> profileViewModel.fetchUserProfileAndCounts()
             TabScreen.PUBLISH -> publishRunViewModel.loadLocalRuns()
+            TabScreen.CHALLENGES -> { /* No action needed on tab select for now */ }
             else -> { /* Do nothing for other tabs */ }
         }
     }
 
     Scaffold(
         bottomBar = {
-            TabRow(
-                selectedTabIndex = pagerState.currentPage
+            // Replaced TabRow with ScrollableTabRow to fit all the tabs
+            ScrollableTabRow(
+                selectedTabIndex = pagerState.currentPage,
+                edgePadding = 0.dp // Kept this setting for better aesthetics
             ) {
                 TabScreen.entries.forEachIndexed { index, screen ->
                     Tab(
@@ -143,6 +161,7 @@ fun MainScreenWithTabs(
             state = pagerState,
             modifier = modifier.padding(innerPadding)
         ) { page ->
+            // `when` block updated with the new ChallengesScreen
             when (TabScreen.entries[page]) {
                 TabScreen.FEED -> FeedScreen(
                     feedViewModel = feedViewModel,
@@ -158,6 +177,9 @@ fun MainScreenWithTabs(
                     publishRunViewModel = publishRunViewModel,
                     onRunClick = onRunClick
                 )
+                TabScreen.CHALLENGES -> ChallengesScreen(
+                    viewModel = challengeViewModel
+                )
                 TabScreen.PROFILE -> ProfileScreen(
                     profileViewModel = profileViewModel,
                     onLogout = onLogout,
@@ -165,7 +187,7 @@ fun MainScreenWithTabs(
                     onViewUserPosts = onViewUserPosts,
                     onViewFollowing = onViewFollowing,
                     onViewFollowers = onViewFollowers,
-                    onUserClick = onUserClick
+                    //onUserClick = onUserClick
                 )
             }
         }
