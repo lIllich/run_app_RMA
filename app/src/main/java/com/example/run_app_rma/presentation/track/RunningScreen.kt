@@ -25,7 +25,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.example.run_app_rma.sensor.tracking.StepCountManager
 
@@ -36,7 +35,6 @@ fun RunningScreen(
 ) {
     val isTracking by runViewModel.isTracking.collectAsState()
     val locationText by runViewModel.liveLocationData
-//    val sensorText by runViewModel.liveSensorData
     val stepCount by StepCountManager.liveStepCount.collectAsState()
     val elapsedTime by runViewModel.elapsedTime.collectAsState()
     val distanceMeters by runViewModel.distanceMeters.collectAsState()
@@ -55,10 +53,6 @@ fun RunningScreen(
         "${"%.2f".format(distanceMeters / 1000)} km"
     }
     val paceText = if (pace > 0f) "${"%.2f".format(pace)} min/km" else "--"
-
-    // debug
-//    val context = LocalContext.current
-    //***
 
     Column(
         modifier = modifier
@@ -121,19 +115,8 @@ fun RunningScreen(
                     containerColor = if (isTracking) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
                 )
             ) {
-                Text(if (isTracking) "Stop Run" else "Start Run")
+                Text(if (isTracking) "Završi trčanje" else "Započni trčanje")
             }
-
-            // debug
-            //        Button(
-            //            onClick = { runViewModel.exportDatabase(context) },
-            //            modifier = Modifier
-            //                .fillMaxWidth()
-            //                .padding(top = 16.dp)
-            //        ) {
-            //            Text("Export DB")
-            //        }
-            //***
         }
     }
 }

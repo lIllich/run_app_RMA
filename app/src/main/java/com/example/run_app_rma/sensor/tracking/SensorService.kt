@@ -4,6 +4,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.hardware.Sensor
@@ -19,7 +20,6 @@ import com.example.run_app_rma.data.dao.SensorDao
 import com.example.run_app_rma.data.db.AppDatabase
 import com.example.run_app_rma.domain.model.SensorDataEntity
 import com.example.run_app_rma.domain.model.SensorType
-import com.example.run_app_rma.presentation.track.RunViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -102,11 +102,12 @@ class SensorService : Service(), SensorEventListener {
         )
 
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Run in Progress")
-            .setContentText("Tracking your run: steps and location")
-            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle("Trčanje aktivno")
+            .setContentText("Aplikacija prati tvoju lokaciju i broj koraka")
+            .setSmallIcon(R.mipmap.ic_launcher_foreground)
             .setContentIntent(openAppPendingIntent)
             .setOngoing(true)
+            .setAutoCancel(false)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
 
@@ -182,14 +183,28 @@ class SensorService : Service(), SensorEventListener {
                 val stepCount = currentSteps
                 val distanceKm = totalDistance / 1000
 
+                val openAppIntent = Intent(this@SensorService, MainActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                }
+                val openAppPendingIntent = PendingIntent.getActivity(
+                    this@SensorService,
+                    0,
+                    openAppIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+
                 val notification = NotificationCompat.Builder(this@SensorService, CHANNEL_ID)
                     .setContentTitle("Run in Progress")
                     .setContentText("⏱ ${"%02d:%02d".format(minutes, seconds)} | " +
                             "🚶 $stepCount steps | " +
                             "📏 ${"%.2f".format(distanceKm)} km")
                     .setSmallIcon(R.drawable.ic_launcher_foreground)
+                    .setContentIntent(openAppPendingIntent)
                     .setPriority(NotificationCompat.PRIORITY_LOW)
+                    .setOngoing(true)
+                    .setAutoCancel(false)
                     .build()
+
 
                 val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
                 notificationManager.notify(1, notification)
@@ -198,7 +213,6 @@ class SensorService : Service(), SensorEventListener {
             }
         }
     }
-
 }
 
 object StepCountManager {

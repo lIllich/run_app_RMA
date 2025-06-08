@@ -1,7 +1,7 @@
 package com.example.run_app_rma.presentation.track
 
+import android.Manifest
 import android.app.Application
-import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.location.Location
@@ -12,7 +12,6 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import android.Manifest
 import com.example.run_app_rma.data.dao.LocationDao
 import com.example.run_app_rma.data.dao.RunDao
 import com.example.run_app_rma.data.dao.SensorDao
@@ -27,7 +26,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import java.io.File
 
 class RunViewModel(
     application: Application,
@@ -205,26 +203,6 @@ class RunViewModel(
         super.onCleared()
         locationService.stopLocationUpdates()
     }
-
-    // debug
-//    fun exportDatabase(context: Context) {
-//        val dbName = "run_app_database"
-//        val dbPath = context.getDatabasePath(dbName)
-//        val destDir = context.getExternalFilesDir(null)
-//        val destDb = File(destDir, dbName)
-//        val walFile = File(dbPath.absolutePath + "-wal")
-//        val shmFile = File(dbPath.absolutePath + "-shm")
-//
-//        try {
-//            dbPath.copyTo(destDb, overwrite = true)
-//            walFile.copyTo(File(destDir, walFile.name), overwrite = true)
-//            shmFile.copyTo(File(destDir, shmFile.name), overwrite = true)
-//            Log.d("DB_EXPORT", "Exported DB to ${destDb.absolutePath}")
-//        } catch (e: Exception) {
-//            Log.e("DB_EXPORT", "Error exporting DB", e)
-//        }
-//    }
-    //***
 
     class Factory(
         private val application: Application,
