@@ -16,55 +16,59 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.run_app_rma.domain.model.ChallengeType
+import com.example.run_app_rma.domain.model.UserChallengeProgress
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChallengesScreen(viewModel: ChallengeViewModel) {
     val uiState by viewModel.challengeUiState.collectAsState()
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Challenges") },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = Color.White
-                )
-            )
-        }
-    ) { paddingValues ->
+    // Removed Scaffold and TopAppBar
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp, vertical = 8.dp), // Added padding for the whole screen content
+        horizontalAlignment = Alignment.CenterHorizontally // Center content horizontally
+    ) {
+        // Centered title text
+        Text(
+            text = "Izazovi",
+            style = MaterialTheme.typography.headlineSmall,
+            modifier = Modifier.padding(top = 16.dp, bottom = 8.dp) // Add some vertical padding for the title
+        )
+        Spacer(modifier = Modifier.height(8.dp)) // Space between title and challenges list
+
         LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            modifier = Modifier.fillMaxSize(), // Fill remaining space
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            items(uiState) { state ->
-                ChallengeCard(state = state)
+            items(uiState) { challengeUiState ->
+                ChallengeCard(challengeUiState = challengeUiState)
             }
         }
     }
 }
 
 @Composable
-fun ChallengeCard(state: ChallengeUiState) {
-    val challenge = state.challenge
-    val progress = state.progress
+fun ChallengeCard(challengeUiState: ChallengeUiState) {
+    val challenge = challengeUiState.challenge
+    val progress = challengeUiState.progress
 
-    val isCompleted = progress.currentLevel >= challenge.levels.size
-    val nextGoal = if (!isCompleted) challenge.levels[progress.currentLevel] else challenge.levels.last()
-    val currentProgress = progress.value
-
-    val progressPercentage = if (isCompleted) {
-        1f
-    } else if (challenge.type == ChallengeType.FASTEST_RUN) {
-        if (currentProgress == 0f) 0f else (nextGoal / currentProgress).coerceIn(0f, 1f)
-    } else {
-        (currentProgress / nextGoal).coerceIn(0f, 1f)
+    val currentProgressValue = when (challenge.type) {
+        ChallengeType.TOTAL_RUNS -> progress.value
+        ChallengeType.LONGEST_RUN -> progress.value
+        ChallengeType.TOTAL_ELEVATION_GAIN -> progress.value
+        ChallengeType.FASTEST_RUN -> progress.value
     }
 
-    val animatedProgress by animateFloatAsState(targetValue = progressPercentage, label = "progressAnimation")
+    val nextGoal = challenge.levels.getOrNull(progress.currentLevel + 1) ?: 0f
+
+    val isCompleted = progress.currentLevel >= challenge.levels.size - 1
+
+    val animatedProgress by animateFloatAsState(
+        targetValue = if (isCompleted) 1f else (currentProgressValue / nextGoal).coerceIn(0f, 1f),
+        label = "challenge_progress_animation"
+    )
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -78,7 +82,7 @@ fun ChallengeCard(state: ChallengeUiState) {
             Spacer(modifier = Modifier.height(4.dp))
 
             if (isCompleted) {
-                Text("Completed! Title unlocked: ${challenge.finalRewardTitle}", color = MaterialTheme.colorScheme.primary)
+                Text("Dovršeno! Otključan naslov: ${challenge.finalRewardTitle}", color = MaterialTheme.colorScheme.primary)
             } else {
                 Text(
                     text = challenge.description(nextGoal),
@@ -105,4 +109,4 @@ fun ChallengeCard(state: ChallengeUiState) {
             }
         }
     }
-} 
+}

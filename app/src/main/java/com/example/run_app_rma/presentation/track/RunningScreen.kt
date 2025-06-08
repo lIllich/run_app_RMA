@@ -84,7 +84,7 @@ fun RunningScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("Running Tracker", style = MaterialTheme.typography.headlineSmall)
+        Text("Praćenje trčanja", style = MaterialTheme.typography.headlineSmall)
 
         Card(
             modifier = Modifier.fillMaxWidth(),

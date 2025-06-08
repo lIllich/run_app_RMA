@@ -58,11 +58,7 @@ fun PublishRunScreen(
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(
-            text = "Povijest trčanja",
-            style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
+        Text("Povijest trčanja", style = MaterialTheme.typography.headlineSmall)
 
         if (isLoading && !isRefreshing) {
             CircularProgressIndicator(modifier = Modifier.padding(16.dp))
