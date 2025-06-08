@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.run_app_rma.data.dao.ChallengeDao
 import com.example.run_app_rma.data.firestore.model.User
 import com.example.run_app_rma.data.firestore.repository.FollowRepository
 import com.example.run_app_rma.data.firestore.repository.RunPostRepository
@@ -13,6 +14,8 @@ import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 
 class ProfileViewModel(
@@ -20,7 +23,8 @@ class ProfileViewModel(
     private val firebaseAuth: FirebaseAuth,
     private val authRepository: AuthRepository,
     private val runPostRepository: RunPostRepository,
-    private val followRepository: FollowRepository
+    private val followRepository: FollowRepository,
+    private val challengeDao: ChallengeDao
 ) : ViewModel() {
 
     private val _currentUser = MutableStateFlow<User?>(null)
@@ -41,11 +45,22 @@ class ProfileViewModel(
     private val _postCount = MutableStateFlow(0)
     val postCount: StateFlow<Int> = _postCount.asStateFlow()
 
+    private val _unlockedTitles = MutableStateFlow<List<String>>(emptyList())
+    val unlockedTitles: StateFlow<List<String>> = _unlockedTitles.asStateFlow()
 
     private val TAG = "ProfileViewModel"
 
     init {
         fetchUserProfileAndCounts()
+        observeUnlockedTitles()
+    }
+
+    private fun observeUnlockedTitles() {
+        challengeDao.getUnlockedTitles()
+            .onEach { titles ->
+                _unlockedTitles.value = titles
+            }
+            .launchIn(viewModelScope)
     }
 
     /**
@@ -157,6 +172,7 @@ class ProfileViewModel(
         _followingCount.value = 0
         _followersCount.value = 0
         _postCount.value = 0
+        _unlockedTitles.value = emptyList()
     }
 
     fun clearMessages() {
@@ -168,7 +184,8 @@ class ProfileViewModel(
         private val firebaseAuth: FirebaseAuth,
         private val authRepository: AuthRepository,
         private val runPostRepository: RunPostRepository,
-        private val followRepository: FollowRepository
+        private val followRepository: FollowRepository,
+        private val challengeDao: ChallengeDao
     ) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(ProfileViewModel::class.java)) {
@@ -178,7 +195,8 @@ class ProfileViewModel(
                     firebaseAuth,
                     authRepository,
                     runPostRepository,
-                    followRepository
+                    followRepository,
+                    challengeDao
                 ) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class")

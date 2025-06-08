@@ -15,6 +15,8 @@ import androidx.lifecycle.viewModelScope
 import com.example.run_app_rma.data.dao.LocationDao
 import com.example.run_app_rma.data.dao.RunDao
 import com.example.run_app_rma.data.dao.SensorDao
+import com.example.run_app_rma.data.dao.ChallengeDao
+import com.example.run_app_rma.domain.challenges.ChallengeUpdater
 import com.example.run_app_rma.domain.model.LocationDataEntity
 import com.example.run_app_rma.domain.model.RunEntity
 import com.example.run_app_rma.domain.model.SensorType
@@ -32,7 +34,8 @@ class RunViewModel(
     private val runDao: RunDao,
     private val locationDao: LocationDao,
     private val sensorDao: SensorDao,
-    private val locationService: LocationService
+    private val locationService: LocationService,
+    private val challengeUpdater: ChallengeUpdater
 ) : AndroidViewModel(application) {
 
     private val _isTracking = MutableStateFlow(false)
@@ -195,6 +198,8 @@ class RunViewModel(
             runDao.update(updatedRun)
             Log.d("RunViewModel", "Run with ID $runId updated. Final steps: $totalStepsForRun")
 
+            challengeUpdater.updateChallengesAfterRun(updatedRun)
+
             _currentRunId.value = null
         }
     }
@@ -209,6 +214,7 @@ class RunViewModel(
         private val runDao: RunDao,
         private val locationDao: LocationDao,
         private val sensorDao: SensorDao,
+        private val challengeDao: ChallengeDao,
         private val locationService: LocationService
     ) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -219,7 +225,8 @@ class RunViewModel(
                     runDao,
                     locationDao,
                     sensorDao,
-                    locationService
+                    locationService,
+                    ChallengeUpdater(challengeDao, runDao, locationDao)
                 ) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class")

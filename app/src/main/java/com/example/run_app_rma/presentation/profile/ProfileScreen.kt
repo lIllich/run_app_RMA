@@ -3,6 +3,8 @@ package com.example.run_app_rma.presentation.profile
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,7 +15,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -24,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
@@ -43,7 +49,6 @@ fun ProfileScreen(
     onViewUserPosts: (String) -> Unit,
     onViewFollowing: (String) -> Unit,
     onViewFollowers: (String) -> Unit,
-    onUserClick: (String) -> Unit
 ) {
     val currentUser by profileViewModel.currentUser.collectAsState(initial = null)
     val isLoading by profileViewModel.isLoading.collectAsState()
@@ -51,6 +56,7 @@ fun ProfileScreen(
     val followingCount by profileViewModel.followingCount.collectAsState()
     val followersCount by profileViewModel.followersCount.collectAsState()
     val postCount by profileViewModel.postCount.collectAsState()
+    val unlockedTitles by profileViewModel.unlockedTitles.collectAsState()
 
 //    val dateFormat = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
 //    val decimalFormat = DecimalFormat("#.##")
@@ -71,7 +77,7 @@ fun ProfileScreen(
                 Text("Pokušaj ponovo")
             }
         } else if (currentUser != null) {
-            UserProfileContent(user = currentUser!!)
+            UserProfileContent(user = currentUser!!, titles = unlockedTitles)
             Spacer(modifier = Modifier.height(32.dp))
 
             Row(
@@ -143,8 +149,7 @@ fun ProfileScreen(
                     onClick = { profileViewModel.recalculateDistances() },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 16.dp),
-                    enabled = !isLoading // disable button while loading
+                        .padding(top = 16.dp)
                 ) {
                     Text("Preračunaj ukupnu udaljenost")
                 }
@@ -159,8 +164,9 @@ fun ProfileScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun UserProfileContent(user: User) {
+fun UserProfileContent(user: User, titles: List<String> = emptyList()) {
     val decimalFormat = DecimalFormat("#.##")
     val dateFormat = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
 
@@ -177,7 +183,31 @@ fun UserProfileContent(user: User) {
         contentScale = ContentScale.Crop
     )
     Spacer(modifier = Modifier.height(16.dp))
-    Text(text = user.displayName.ifEmpty { "N/A" })
+    Text(text = user.displayName.ifEmpty { "N/A" }, style = MaterialTheme.typography.headlineSmall)
+
+    if (titles.isNotEmpty()) {
+        Spacer(modifier = Modifier.height(8.dp))
+        FlowRow(
+            modifier = Modifier.padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            titles.forEach { title ->
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                    shape = MaterialTheme.shapes.small,
+                ) {
+                    Text(
+                        text = title,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold)
+                    )
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+    }
+
     Text(text = "Email: ${user.email}")
     user.age?.let { age ->
         Text(text = "Dob: $age")

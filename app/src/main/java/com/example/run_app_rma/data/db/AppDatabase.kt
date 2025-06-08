@@ -7,18 +7,21 @@ import androidx.room.RoomDatabase
 import com.example.run_app_rma.data.dao.LocationDao
 import com.example.run_app_rma.data.dao.RunDao
 import com.example.run_app_rma.data.dao.SensorDao
+import com.example.run_app_rma.data.dao.ChallengeDao
 import com.example.run_app_rma.domain.model.LocationDataEntity
 import com.example.run_app_rma.domain.model.RunEntity
 import com.example.run_app_rma.domain.model.SensorDataEntity
+import com.example.run_app_rma.domain.model.UserChallengeProgress
 
 @Database(
-    entities = [RunEntity::class, SensorDataEntity::class, LocationDataEntity::class],
-    version = 3
+    entities = [RunEntity::class, SensorDataEntity::class, LocationDataEntity::class, UserChallengeProgress::class],
+    version = 4
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun runDao(): RunDao
     abstract fun sensorDao(): SensorDao
     abstract fun locationDao(): LocationDao
+    abstract fun challengeDao(): ChallengeDao
 
     companion object {
         @Volatile
