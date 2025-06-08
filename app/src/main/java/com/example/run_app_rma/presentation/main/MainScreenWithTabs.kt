@@ -48,8 +48,8 @@ enum class TabScreen(val title: String, val icon: ImageVector) {
     FEED("Feed", Icons.Default.DynamicFeed),
     SEARCH("Traži", Icons.Default.Search),
     RUNNING("Trčanje", Icons.AutoMirrored.Filled.DirectionsRun),
-    CHALLENGES("Izazovi", Icons.Default.EmojiEvents),
     PUBLISH("Objavi", Icons.Default.ArrowUpward),
+    CHALLENGES("Izazovi", Icons.Default.EmojiEvents),
     PROFILE("Profil", Icons.Default.AccountCircle)
 }
 
@@ -187,7 +187,7 @@ fun MainScreenWithTabs(
                     onViewUserPosts = onViewUserPosts,
                     onViewFollowing = onViewFollowing,
                     onViewFollowers = onViewFollowers,
-                    //onUserClick = onUserClick
+                    onUserClick = onUserClick
                 )
             }
         }
