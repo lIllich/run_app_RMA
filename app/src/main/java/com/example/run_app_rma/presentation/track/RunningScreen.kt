@@ -20,13 +20,18 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.example.run_app_rma.sensor.tracking.StepCountManager
+import kotlinx.coroutines.delay
 
 @Composable
 fun RunningScreen(
@@ -39,6 +44,24 @@ fun RunningScreen(
     val elapsedTime by runViewModel.elapsedTime.collectAsState()
     val distanceMeters by runViewModel.distanceMeters.collectAsState()
     val pace by runViewModel.livePace.collectAsState()
+    val runFinished by runViewModel.runFinished.collectAsState()
+
+    // manage flashing state: show data on/off
+    var showData by remember { mutableStateOf(true) }
+    LaunchedEffect(runFinished) {
+        if (runFinished) {
+            val flashInterval = 500L
+            val totalDuration = 5000L
+            val startTime = System.currentTimeMillis()
+            while (System.currentTimeMillis() - startTime < totalDuration) {
+                showData = !showData
+                delay(flashInterval)
+            }
+            showData = false
+        } else {
+            showData = true
+        }
+    }
 
     val elapsedTimeText = if (elapsedTime < 60_000) {
         "${(elapsedTime / 1000)} s"
@@ -87,17 +110,17 @@ fun RunningScreen(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(Icons.AutoMirrored.Filled.DirectionsRun, contentDescription = "Distance")
-                    Text(distanceText, style = MaterialTheme.typography.bodyLarge)
+                    Text(if (showData) distanceText else "", style = MaterialTheme.typography.bodyLarge)
                     Text("Udaljenost", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(Icons.Default.Speed, contentDescription = "Pace")
-                    Text(paceText, style = MaterialTheme.typography.bodyLarge)
+                    Text(if (showData) paceText else "", style = MaterialTheme.typography.bodyLarge)
                     Text("Tempo", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(Icons.Default.AccessTime, contentDescription = "Duration")
-                    Text(elapsedTimeText, style = MaterialTheme.typography.bodyLarge)
+                    Text(if (showData) elapsedTimeText else "", style = MaterialTheme.typography.bodyLarge)
                     Text("Trajanje", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
                 }
             }

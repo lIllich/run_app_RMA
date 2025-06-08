@@ -12,10 +12,10 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.run_app_rma.data.dao.ChallengeDao
 import com.example.run_app_rma.data.dao.LocationDao
 import com.example.run_app_rma.data.dao.RunDao
 import com.example.run_app_rma.data.dao.SensorDao
-import com.example.run_app_rma.data.dao.ChallengeDao
 import com.example.run_app_rma.domain.challenges.ChallengeUpdater
 import com.example.run_app_rma.domain.model.LocationDataEntity
 import com.example.run_app_rma.domain.model.RunEntity
@@ -52,6 +52,11 @@ class RunViewModel(
 
     private val _livePace = MutableStateFlow(0f)
     val livePace: StateFlow<Float> = _livePace
+
+    private val _runFinished = MutableStateFlow(false)
+    val runFinished: StateFlow<Boolean> = _runFinished
+
+    private var flashJob: Job? = null
 
     val liveLocationData = mutableStateOf("Lat: N/A, Lng: N/A")
     private val liveSensorData = mutableStateOf("Steps: N/A")
@@ -198,10 +203,34 @@ class RunViewModel(
             runDao.update(updatedRun)
             Log.d("RunViewModel", "Run with ID $runId updated. Final steps: $totalStepsForRun")
 
+            // --- MERGED LOGIC ---
+            // 1. Update challenges first (from your branch)
             challengeUpdater.updateChallengesAfterRun(updatedRun)
+
+            // 2. Then, trigger UI flashing and reset (from main)
+            _runFinished.value = true
+
+            // Launch flashing coroutine to keep final data visible (flashing) for 5 seconds, then reset
+            flashJob?.cancel()
+            flashJob = viewModelScope.launch {
+                delay(5000)
+                resetRunData()
+            }
+            // --- END MERGED LOGIC ---
 
             _currentRunId.value = null
         }
+    }
+
+    // reset all tracking data to initial state
+    private fun resetRunData() {
+        _elapsedTime.value = 0L
+        _distanceMeters.value = 0f
+        _livePace.value = 0f
+        liveSensorData.value = "Steps: 0"
+        currentRunLocations.clear()
+        currentRunStartTime = 0L
+        _runFinished.value = false
     }
 
     override fun onCleared() {

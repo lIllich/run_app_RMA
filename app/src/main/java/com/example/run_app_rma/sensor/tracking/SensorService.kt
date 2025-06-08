@@ -4,7 +4,6 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
-import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.hardware.Sensor
@@ -92,13 +91,13 @@ class SensorService : Service(), SensorEventListener {
 
     private fun startForegroundService() {
         val openAppIntent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
         val openAppPendingIntent: PendingIntent = PendingIntent.getActivity(
             this,
             0,
             openAppIntent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
@@ -107,7 +106,6 @@ class SensorService : Service(), SensorEventListener {
             .setSmallIcon(R.mipmap.ic_launcher_foreground)
             .setContentIntent(openAppPendingIntent)
             .setOngoing(true)
-            .setAutoCancel(false)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
 
@@ -184,7 +182,7 @@ class SensorService : Service(), SensorEventListener {
                 val distanceKm = totalDistance / 1000
 
                 val openAppIntent = Intent(this@SensorService, MainActivity::class.java).apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                    flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TASK
                 }
                 val openAppPendingIntent = PendingIntent.getActivity(
                     this@SensorService,
@@ -194,10 +192,12 @@ class SensorService : Service(), SensorEventListener {
                 )
 
                 val notification = NotificationCompat.Builder(this@SensorService, CHANNEL_ID)
-                    .setContentTitle("Run in Progress")
-                    .setContentText("⏱ ${"%02d:%02d".format(minutes, seconds)} | " +
+                    .setContentTitle("Trčanje aktivno")
+                    .setContentText(
+                        "⏱ ${"%02d:%02d".format(minutes, seconds)} | " +
                             "🚶 $stepCount steps | " +
-                            "📏 ${"%.2f".format(distanceKm)} km")
+                            "📏 ${"%.2f".format(distanceKm)} km"
+                    )
                     .setSmallIcon(R.drawable.ic_launcher_foreground)
                     .setContentIntent(openAppPendingIntent)
                     .setPriority(NotificationCompat.PRIORITY_LOW)
