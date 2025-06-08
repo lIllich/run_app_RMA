@@ -91,7 +91,9 @@ fun PublishRunScreen(
                         modifier = Modifier.fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        items(localRuns, key = { it.id }) { run ->
+                        // Sort localRuns by startTime in descending order
+                        val sortedRuns = localRuns.sortedByDescending { it.startTime }
+                        items(sortedRuns, key = { it.id }) { run ->
                             RunItemCard(
                                 run = run,
                                 dateFormat = dateFormat,
