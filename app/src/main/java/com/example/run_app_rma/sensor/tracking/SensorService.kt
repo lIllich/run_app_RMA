@@ -19,6 +19,7 @@ import com.example.run_app_rma.data.dao.SensorDao
 import com.example.run_app_rma.data.db.AppDatabase
 import com.example.run_app_rma.domain.model.SensorDataEntity
 import com.example.run_app_rma.domain.model.SensorType
+import com.example.run_app_rma.presentation.track.GpsDistanceRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -178,12 +179,13 @@ class SensorService : Service(), SensorEventListener {
                 val elapsedMillis = System.currentTimeMillis() - runStartTime
                 val minutes = (elapsedMillis / 1000) / 60
                 val seconds = (elapsedMillis / 1000) % 60
-                val stepCount = currentSteps
-                val distanceKm = totalDistance / 1000
+                val stepCount = StepCountManager.liveStepCount.value
+                val distanceKm = GpsDistanceRepository.distance.value / 1000f  // <== LIVE VALUE
 
                 val openAppIntent = Intent(this@SensorService, MainActivity::class.java).apply {
                     flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TASK
                 }
+
                 val openAppPendingIntent = PendingIntent.getActivity(
                     this@SensorService,
                     0,
@@ -195,8 +197,8 @@ class SensorService : Service(), SensorEventListener {
                     .setContentTitle("Trčanje aktivno")
                     .setContentText(
                         "⏱ ${"%02d:%02d".format(minutes, seconds)} | " +
-                            "🚶 $stepCount steps | " +
-                            "📏 ${"%.2f".format(distanceKm)} km"
+                                "🚶 $stepCount koraka | " +
+                                "📏 ${"%.2f".format(distanceKm)} km"
                     )
                     .setSmallIcon(R.drawable.ic_launcher_foreground)
                     .setContentIntent(openAppPendingIntent)
@@ -205,11 +207,11 @@ class SensorService : Service(), SensorEventListener {
                     .setAutoCancel(false)
                     .build()
 
-
-                val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                val notificationManager =
+                    getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
                 notificationManager.notify(1, notification)
 
-                delay(1000)     // update every second
+                delay(1000)
             }
         }
     }

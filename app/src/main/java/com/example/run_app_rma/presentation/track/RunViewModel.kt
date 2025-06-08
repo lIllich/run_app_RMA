@@ -58,7 +58,7 @@ class RunViewModel(
 
     private var flashJob: Job? = null
 
-    val liveLocationData = mutableStateOf("Lat: N/A, Lng: N/A")
+    val liveLocationData = mutableStateOf("Lat: N/A\nLng: N/A")
     private val liveSensorData = mutableStateOf("Steps: N/A")
 
     private var currentRunStartTime: Long = 0L
@@ -66,12 +66,18 @@ class RunViewModel(
     private var timerJob: Job? = null
 
     init {
+        viewModelScope.launch {
+            distanceMeters.collect { distance ->
+                GpsDistanceRepository.update(distance)
+            }
+        }
+
         if (ContextCompat.checkSelfPermission(getApplication(), Manifest.permission.ACCESS_FINE_LOCATION)
             == PackageManager.PERMISSION_GRANTED
         ) {
             try {
                 locationService.startLocationUpdates { location ->
-                    liveLocationData.value = "Lat: ${location.latitude}, Lng: ${location.longitude}"
+                    liveLocationData.value = "Lat: ${location.latitude}\nLng: ${location.longitude}"
 
                     if (_isTracking.value && _currentRunId.value != null) {
                         currentRunLocations.add(location)
@@ -203,20 +209,18 @@ class RunViewModel(
             runDao.update(updatedRun)
             Log.d("RunViewModel", "Run with ID $runId updated. Final steps: $totalStepsForRun")
 
-            // --- MERGED LOGIC ---
-            // 1. Update challenges first (from your branch)
+            // update challenges
             challengeUpdater.updateChallengesAfterRun(updatedRun)
 
-            // 2. Then, trigger UI flashing and reset (from main)
+            // trigger UI flashing and reset (from main)
             _runFinished.value = true
 
-            // Launch flashing coroutine to keep final data visible (flashing) for 5 seconds, then reset
+            // launch flashing coroutine to keep final data visible (flashing) for 5 seconds, then reset
             flashJob?.cancel()
             flashJob = viewModelScope.launch {
                 delay(5000)
                 resetRunData()
             }
-            // --- END MERGED LOGIC ---
 
             _currentRunId.value = null
         }
@@ -227,6 +231,7 @@ class RunViewModel(
         _elapsedTime.value = 0L
         _distanceMeters.value = 0f
         _livePace.value = 0f
+        GpsDistanceRepository.reset()
         liveSensorData.value = "Steps: 0"
         currentRunLocations.clear()
         currentRunStartTime = 0L
@@ -260,5 +265,19 @@ class RunViewModel(
             }
             throw IllegalArgumentException("Unknown ViewModel class")
         }
+    }
+}
+
+object GpsDistanceRepository {
+    private val _distance = MutableStateFlow(0f)
+    val distance: StateFlow<Float> = _distance
+
+    fun update(newValue: Float) {
+        _distance.value = newValue
+        Log.d("DistanceManager", "Updating distance: $newValue")
+    }
+
+    fun reset() {
+        _distance.value = 0f
     }
 }
