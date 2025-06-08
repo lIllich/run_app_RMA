@@ -48,12 +48,10 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -82,7 +80,7 @@ import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
+@OptIn(ExperimentalMaterialApi::class)
 @Composable
 fun RunPostScreen(
     modifier: Modifier = Modifier,
@@ -116,75 +114,73 @@ fun RunPostScreen(
     val pagerState = rememberPagerState(initialPage = 0, pageCount = { 2 })
     val scope = rememberCoroutineScope()
 
-//    val swipeRefreshState = rememberSwipeRefreshState(isRefreshing = isRefreshing)
     val swipeRefreshState = rememberPullRefreshState(
         refreshing = isRefreshing,
         onRefresh = { runPost?.id?.let { runPostViewModel.fetchRunPostAndRelatedData(it) } }
     )
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text("Objava Trčanja")
-                        if (isInitialLoading && !isRefreshing) {
-                            Spacer(modifier = Modifier.width(8.dp))
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                strokeWidth = 2.dp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Natrag")
-                    }
-                },
-                actions = {
-                    // show three dots menu only if current user is the post owner
-                    if (runPost != null && currentUserId == runPost?.userId) {
-                        IconButton(onClick = { showPostMenu = true }) {
-                            Icon(Icons.Default.MoreVert, contentDescription = "Opcije objave")
-                        }
-                        // dropdown menu for post deletion
-                        DropdownMenu(
-                            expanded = showPostMenu,
-                            onDismissRequest = { showPostMenu = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("Obriši objavu") },
-                                onClick = {
-                                    showPostMenu = false
-                                    runPostViewModel.deletePost(
-                                        postId = runPost!!.id,
-                                        onSuccessAction = { onPostDeleted() }
-                                    )
-                                },
-                                leadingIcon = {
-                                    Icon(Icons.Default.Delete, contentDescription = "Obriši objavu")
-                                }
-                            )
-                        }
-                    }
+    Column(
+        modifier = modifier
+            .fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Natrag")
+            }
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Objava Trčanja", style = MaterialTheme.typography.headlineSmall)
+                if (isInitialLoading && !isRefreshing) {
+                    Spacer(modifier = Modifier.width(12.dp))
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
-            )
+            }
+
+            Box {
+                if (runPost != null && currentUserId == runPost?.userId) {
+                    IconButton(onClick = { showPostMenu = true }) {
+                        Icon(Icons.Default.MoreVert, contentDescription = "Opcije objave")
+                    }
+                    DropdownMenu(
+                        expanded = showPostMenu,
+                        onDismissRequest = { showPostMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Obriši objavu") },
+                            onClick = {
+                                showPostMenu = false
+                                runPostViewModel.deletePost(
+                                    postId = runPost!!.id,
+                                    onSuccessAction = { onPostDeleted() }
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(Icons.Default.Delete, contentDescription = "Obriši objavu")
+                            }
+                        )
+                    }
+                } else {
+                    Spacer(modifier = Modifier.size(48.dp))
+                }
+            }
         }
-    ) { paddingValues ->
-//        SwipeRefresh(
-//            state = swipeRefreshState,
-//            onRefresh = { runPost?.id?.let { runPostViewModel.fetchRunPostAndRelatedData(it) } },
-//            modifier = modifier
-//                .fillMaxSize()
-//                .padding(paddingValues)
+
         Box(
-            modifier = modifier
+            modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
                 .pullRefresh(swipeRefreshState)
         ) {
             val scrollState = rememberScrollState()
@@ -193,8 +189,7 @@ fun RunPostScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(scrollState)
-//                    .padding(horizontal = 16.dp),
-                    .padding(16.dp),
+                    .padding(horizontal = 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Top
             ) {
@@ -226,7 +221,7 @@ fun RunPostScreen(
                                 .clip(CircleShape),
                             contentScale = ContentScale.Crop
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
                         Text(
                             text = currentPostUser?.displayName ?: "Nepoznat korisnik",
                             style = MaterialTheme.typography.titleMedium,
@@ -240,7 +235,7 @@ fun RunPostScreen(
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -285,7 +280,7 @@ fun RunPostScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     // elevation graph and map buttons
                     Row(
@@ -297,18 +292,18 @@ fun RunPostScreen(
                             onClick = { runPost?.id?.let { onViewMap(it) } },
                             modifier = Modifier.weight(1f)
                         ) {
-                            Text("Prikaži kartu")
+                            Text("Karta")
                         }
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
                         Button(
                             onClick = { runPost?.id?.let { onViewElevationGraph(it) } },
                             modifier = Modifier.weight(1f)
                         ) {
-                            Text("Prikaži graf elevacije")
+                            Text("Graf elevacije")
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     if (post.caption.isNotEmpty()) {
                         Text(
@@ -316,11 +311,11 @@ fun RunPostScreen(
                             style = MaterialTheme.typography.bodyMedium,
                             modifier = Modifier.fillMaxWidth()
                         )
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
                     }
 
                     HorizontalDivider(modifier = Modifier.fillMaxWidth())
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -391,8 +386,6 @@ fun RunPostScreen(
                                 Column(
                                     modifier = Modifier
                                         .fillMaxSize()
-//                                        .verticalScroll(rememberScrollState())
-//                                        .padding(horizontal = 16.dp, vertical = 8.dp)
                                         .padding(16.dp)
                                 ) {
                                     Row(
@@ -406,7 +399,7 @@ fun RunPostScreen(
                                             placeholder = { Text("Dodaj komentar...") },
                                             modifier = Modifier.weight(1f)
                                         )
-                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Spacer(modifier = Modifier.width(12.dp))
                                         IconButton(
                                             onClick = { runPostViewModel.addComment() },
                                             enabled = commentInput.isNotBlank() && !isLoadingAction
@@ -415,7 +408,7 @@ fun RunPostScreen(
                                         }
                                     }
 
-                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Spacer(modifier = Modifier.height(8.dp))
 
                                     if (comments.isEmpty()) {
                                         Column(
@@ -535,7 +528,7 @@ fun CommentItem(
                         .clip(CircleShape),
                     contentScale = ContentScale.Crop
                 )
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(12.dp))
                 Column {
                     Text(
                         text = commenter?.displayName ?: "Nepoznat korisnik",

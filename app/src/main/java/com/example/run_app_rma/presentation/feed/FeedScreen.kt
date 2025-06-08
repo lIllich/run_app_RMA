@@ -2,20 +2,17 @@ package com.example.run_app_rma.presentation.feed
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -29,7 +26,6 @@ import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.Locale
-
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,55 +47,36 @@ fun FeedScreen(
 
     val swipeRefreshState = rememberSwipeRefreshState(isRefreshing = isRefreshing)
 
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text("Feed", style = MaterialTheme.typography.headlineSmall)
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Feed")
-                        if (isInitialLoading && !isRefreshing) {    // show initial loading only if not refreshing
-                            Spacer(modifier = Modifier.width(8.dp))
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                strokeWidth = 2.dp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-            )
+        if (isInitialLoading && !isRefreshing) {
+            CircularProgressIndicator(modifier = Modifier.padding(16.dp))
         }
-    ) { innerPadding ->
+
+        Spacer(modifier = Modifier.height(16.dp))
+
         SwipeRefresh(
             state = swipeRefreshState,
             onRefresh = { feedViewModel.loadFeedPosts() },
-            modifier = modifier
-                .fillMaxSize()
-                .padding(innerPadding)
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f) // ensures SwipeRefresh takes up remaining space
         ) {
             Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 16.dp),
+                modifier = Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                errorMessage?.let { message ->
-                    Text(
-                        text = message,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.padding(8.dp)
-                    )
-                }
-
                 if (allPosts.isEmpty() && !isInitialLoading && !isRefreshing) {
                     Text("Nema objava za prikaz.")
-                } else if (allPosts.isEmpty() && isInitialLoading && !isRefreshing) {
-                    // should be covered by the CircularProgressIndicator in TopAppBar or by the isInitialLoading check
                 } else {
                     LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         items(allPosts, key = { it.id }) { post ->
                             RunPostCard(
