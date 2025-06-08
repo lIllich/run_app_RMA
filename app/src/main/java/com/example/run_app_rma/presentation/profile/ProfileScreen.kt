@@ -12,24 +12,34 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
@@ -39,6 +49,7 @@ import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.TimeUnit
 
 @Composable
 fun ProfileScreen(
@@ -49,6 +60,7 @@ fun ProfileScreen(
     onViewUserPosts: (String) -> Unit,
     onViewFollowing: (String) -> Unit,
     onViewFollowers: (String) -> Unit,
+    onUserClick: (String) -> Unit // Added for consistency with MainScreenWithTabs
 ) {
     val currentUser by profileViewModel.currentUser.collectAsState(initial = null)
     val isLoading by profileViewModel.isLoading.collectAsState()
@@ -58,13 +70,20 @@ fun ProfileScreen(
     val postCount by profileViewModel.postCount.collectAsState()
     val unlockedTitles by profileViewModel.unlockedTitles.collectAsState()
 
-//    val dateFormat = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
-//    val decimalFormat = DecimalFormat("#.##")
+    val weeklyStepsProgress by profileViewModel.weeklyStepsProgress.collectAsState()
+    val weeklyDurationProgress by profileViewModel.weeklyDurationProgress.collectAsState()
+    val weeklyDistanceProgress by profileViewModel.weeklyDistanceProgress.collectAsState()
+
+    var showSetGoalsDialog by remember { mutableStateOf(false) }
+
+    // Scroll state from your branch to make the combined screen scrollable
+    val scrollState = rememberScrollState()
 
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(16.dp),
+            .padding(16.dp)
+            .verticalScroll(scrollState), // Apply vertical scroll
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Top
     ) {
@@ -77,6 +96,7 @@ fun ProfileScreen(
                 Text("Pokušaj ponovo")
             }
         } else if (currentUser != null) {
+            // Your UserProfileContent with titles feature
             UserProfileContent(user = currentUser!!, titles = unlockedTitles)
             Spacer(modifier = Modifier.height(32.dp))
 
@@ -104,12 +124,11 @@ fun ProfileScreen(
             }
             Spacer(modifier = Modifier.height(16.dp))
 
-            // buttons for posts, following, and followers
             Button(
                 onClick = { currentUser?.let { onViewUserPosts(it.id) } },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Moje objave ($postCount)")    // display post count
+                Text("Moje objave ($postCount)")
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -143,8 +162,37 @@ fun ProfileScreen(
             }
             Spacer(modifier = Modifier.height(16.dp))
 
-            // button to trigger recalculation, visible only for a specific user ID
-            if (currentUser?.id == "1nfVhq0VD7amA3JGAtwcxGcyzd13") {
+            // Weekly goals feature from the main branch
+            Button(
+                onClick = { showSetGoalsDialog = true },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp)
+            ) {
+                Text("Postavi tjedne ciljeve")
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+            Text("Tjedni ciljevi napredak:", style = MaterialTheme.typography.titleMedium)
+            Spacer(modifier = Modifier.height(8.dp))
+
+            WeeklyGoalProgress(
+                label = "Koraci:",
+                current = currentUser?.weeklyGoalSteps,
+                progress = weeklyStepsProgress
+            )
+            WeeklyGoalProgress(
+                label = "Trajanje:",
+                current = currentUser?.weeklyGoalDuration,
+                progress = weeklyDurationProgress
+            )
+            WeeklyGoalProgress(
+                label = "Udaljenost:",
+                current = currentUser?.weeklyGoalDistance,
+                progress = weeklyDistanceProgress
+            )
+
+            if (currentUser?.id == "2MKIn3Un7HevvAAROb4z3cWaxFy2" && false) {
                 Button(
                     onClick = { profileViewModel.recalculateDistances() },
                     modifier = Modifier
@@ -161,6 +209,19 @@ fun ProfileScreen(
                 Text("Idi na prijavu")
             }
         }
+    }
+
+    if (showSetGoalsDialog) {
+        SetWeeklyGoalsDialog(
+            onDismiss = { showSetGoalsDialog = false },
+            onConfirm = { steps, durationMinutes, distanceKm ->
+                profileViewModel.setWeeklyGoals(steps, durationMinutes, distanceKm)
+                showSetGoalsDialog = false
+            },
+            initialSteps = currentUser?.weeklyGoalSteps,
+            initialDurationMinutes = currentUser?.weeklyGoalDuration?.let { TimeUnit.MILLISECONDS.toMinutes(it).toInt() },
+            initialDistanceKm = currentUser?.weeklyGoalDistance?.let { it / 1000f }
+        )
     }
 }
 
@@ -215,8 +276,109 @@ fun UserProfileContent(user: User, titles: List<String> = emptyList()) {
     Text(text = "Ukupna udaljenost: ${decimalFormat.format(user.totalDistanceRun / 1000)} km")
     Text(text = "Ukupno trčanja: ${user.totalRuns}")
 
-    // display lastRunTimestamp if available and format it
     user.lastRunTimestamp?.let { timestamp ->
         Text(text = "Posljednje trčanje: ${dateFormat.format(Date(timestamp))}")
     }
+}
+
+@Composable
+fun WeeklyGoalProgress(label: String, current: Any?, progress: Float?) {
+    if (current != null && progress != null) {
+        val progressPercentage = String.format(Locale.getDefault(), "%.1f%%", progress)
+        val goalText = when (current) {
+            is Int -> "$current"
+            is Long -> "${TimeUnit.MILLISECONDS.toMinutes(current)} min"
+            is Float -> "${String.format(Locale.getDefault(), "%.1f", current / 1000f)} km"
+            else -> ""
+        }
+        Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("$label $goalText", style = MaterialTheme.typography.bodyMedium)
+                Text("$progressPercentage", style = MaterialTheme.typography.bodyMedium)
+            }
+            LinearProgressIndicator(
+                progress = { (progress / 100f).coerceIn(0f, 1f) },
+                modifier = Modifier.fillMaxWidth(),
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+    }
+}
+
+
+@Composable
+fun SetWeeklyGoalsDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (steps: Int?, durationMinutes: Int?, distanceKm: Float?) -> Unit,
+    initialSteps: Int?,
+    initialDurationMinutes: Int?,
+    initialDistanceKm: Float?
+) {
+    var steps by remember { mutableStateOf(initialSteps?.toString() ?: "") }
+    var duration by remember { mutableStateOf(initialDurationMinutes?.toString() ?: "") }
+    var distance by remember { mutableStateOf(initialDistanceKm?.toString() ?: "") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Postavi tjedne ciljeve") },
+        text = {
+            Column {
+                TextField(
+                    value = steps,
+                    onValueChange = { newValue ->
+                        if (newValue.all { it.isDigit() } || newValue.isEmpty()) {
+                            steps = newValue
+                        }
+                    },
+                    label = { Text("Broj koraka") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                TextField(
+                    value = duration,
+                    onValueChange = { newValue ->
+                        if (newValue.all { it.isDigit() } || newValue.isEmpty()) {
+                            duration = newValue
+                        }
+                    },
+                    label = { Text("Trajanje (minuta)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                TextField(
+                    value = distance,
+                    onValueChange = { newValue ->
+                        if (newValue.matches(Regex("^\\d*\\.?\\d*\$"))) {
+                            distance = newValue
+                        }
+                    },
+                    label = { Text("Udaljenost (km)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                onConfirm(
+                    steps.toIntOrNull(),
+                    duration.toIntOrNull(),
+                    distance.toFloatOrNull()
+                )
+            }) {
+                Text("Potvrdi")
+            }
+        },
+        dismissButton = {
+            Button(onClick = onDismiss) {
+                Text("Odustani")
+            }
+        }
+    )
 }
