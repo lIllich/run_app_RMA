@@ -49,12 +49,15 @@ class RunViewModel(
     private val _distanceMeters = MutableStateFlow(0f)
     val distanceMeters: StateFlow<Float> = _distanceMeters
 
-    private var currentRunStartTime: Long = 0L
-    private var currentRunLocations = mutableListOf<Location>()
-    private var timerJob: Job? = null
+    private val _livePace = MutableStateFlow(0f)
+    val livePace: StateFlow<Float> = _livePace
 
     val liveLocationData = mutableStateOf("Lat: N/A, Lng: N/A")
     private val liveSensorData = mutableStateOf("Steps: N/A")
+
+    private var currentRunStartTime: Long = 0L
+    private var currentRunLocations = mutableListOf<Location>()
+    private var timerJob: Job? = null
 
     init {
         if (ContextCompat.checkSelfPermission(getApplication(), Manifest.permission.ACCESS_FINE_LOCATION)
@@ -137,6 +140,13 @@ class RunViewModel(
             while (isTracking.value) {
                 val elapsed = System.currentTimeMillis() - currentRunStartTime
                 _elapsedTime.value = elapsed
+
+                if (elapsed >= 5000 && _distanceMeters.value > 0f) {
+                    val minutes = elapsed / 1000f / 60f
+                    val km = _distanceMeters.value / 1000f
+                    _livePace.value = minutes / km
+                }
+
                 delay(1000)
             }
         }
